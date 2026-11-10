@@ -49,6 +49,18 @@ UEMP is a role-based university administration portal. This MVP prioritizes the 
 - Tailwind CSS
 - Pest for feature and unit tests (TDD)
 
+## Grading scale
+
+| Score | Grade | Grade points |
+| --- | --- | ---: |
+| 80-100 | A | 4.0 |
+| 70-79 | B | 3.0 |
+| 60-69 | C | 2.0 |
+| 50-59 | D | 1.0 |
+| 0-49 | F | 0.0 |
+
+Cumulative GPA is credit-weighted and uses approved results only. The scale is a documented MVP default and can be changed to match university policy.
+
 ## Local setup
 
 Requirements: PHP 8.4, Composer, Node.js with npm, and PostgreSQL.
@@ -81,6 +93,17 @@ Requirements: PHP 8.4, Composer, Node.js with npm, and PostgreSQL.
 	```
 
 On Windows PowerShell, use `Copy-Item .env.example .env` in place of `cp`.
+
+The seeded development accounts all use the password `password`:
+
+| Role | Email |
+| --- | --- |
+| Super Admin | `superadmin@uemp.test` |
+| Department Admin | `admin@uemp.test` |
+| Lecturer | `lecturer@uemp.test` |
+| Student | `student@uemp.test` |
+
+These are local demonstration credentials only. Change or remove them before deploying the application anywhere public.
 
 ## Testing
 

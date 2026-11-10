@@ -61,7 +61,7 @@ class DatabaseSeeder extends Seeder
         );
         $admin = User::updateOrCreate(
             ['email' => 'admin@uemp.test'],
-            ['name' => 'Technology Department Admin', 'password' => 'password', 'department_id' => $technology->id],
+            ['name' => 'Kwame Mensah', 'password' => 'password', 'department_id' => $technology->id],
         );
         $lecturer = User::updateOrCreate(
             ['email' => 'lecturer@uemp.test'],

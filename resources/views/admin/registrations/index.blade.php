@@ -1,0 +1,11 @@
+@extends('layouts.app')
+
+@section('title', 'Registrations')
+@section('content')
+    <div class="page-heading"><div><p class="eyebrow">Academic review</p><h1>Course registrations</h1><p class="muted">Review student requests for this department.</p></div></div>
+    <section class="data-section"><div class="table-toolbar"><div><h2>Registration queue</h2><p>{{ $registrations->where('status', 'pending')->count() }} awaiting decision</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Student</th><th>Course</th><th>Academic year</th><th>Semester</th><th>Status</th><th>Decision</th></tr></thead><tbody>
+            @forelse ($registrations as $registration)<tr><td><strong>{{ $registration->student->name }}</strong><small>{{ $registration->student->student_number }}</small></td><td><strong>{{ $registration->course->code }}</strong><small>{{ $registration->course->title }}</small></td><td>{{ $registration->academic_year }}</td><td>{{ $registration->semester }}</td><td><span class="status status-{{ $registration->status }}">{{ ucfirst($registration->status) }}</span></td><td>@if ($registration->status === 'pending')<form class="decision-form" method="POST" action="{{ route('admin.registrations.update', $registration) }}">@csrf @method('PATCH')<button class="button button-small" name="status" value="confirmed">Confirm</button><button class="button button-small button-quiet" name="status" value="rejected">Reject</button></form>@else<span class="muted">Decision recorded</span>@endif</td></tr>@empty<tr><td class="empty-state" colspan="6">No course registrations to review.</td></tr>@endforelse
+        </tbody></table></div>
+    </section>
+@endsection
