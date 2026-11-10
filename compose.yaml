@@ -1,0 +1,99 @@
+x-app-environment: &app-environment
+  APP_URL: http://localhost:8000
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: uemp
+  DB_USERNAME: uemp
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-uemp-local}
+
+x-app-volumes: &app-volumes
+  - .:/var/www/html
+  - vendor:/var/www/html/vendor
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: uemp
+      POSTGRES_USER: uemp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uemp-local}
+    ports:
+      - "127.0.0.1:${DB_FORWARD_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/10-create-test-database.sql:/docker-entrypoint-initdb.d/10-create-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uemp -d uemp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment: *app-environment
+    volumes: *app-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment: *app-environment
+    volumes: *app-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=0"]
+
+  vite:
+    image: node:22-alpine
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    command:
+      - sh
+      - -c
+      - if [ ! -x node_modules/.bin/vite ]; then npm ci; fi && npm run dev -- --host 0.0.0.0
+
+  test:
+    profiles: ["testing"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: uemp_test
+      DB_USERNAME: uemp
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-uemp-local}
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    volumes: *app-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["php", "artisan", "test"]
+
+volumes:
+  postgres_data:
+  vendor:
+  node_modules:

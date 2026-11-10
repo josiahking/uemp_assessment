@@ -14,7 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'department_id', 'student_number', 'faculty', 'program', 'academic_level'])]
+#[Fillable(['name', 'email', 'password', 'department_id', 'student_number', 'faculty', 'program', 'academic_level', 'academic_program_id', 'academic_level_id', 'account_status'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -24,6 +24,21 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function academicProgram(): BelongsTo
+    {
+        return $this->belongsTo(AcademicProgram::class);
+    }
+
+    public function academicLevel(): BelongsTo
+    {
+        return $this->belongsTo(AcademicLevel::class);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->account_status === 'active';
     }
 
     public function courseRegistrations(): HasMany

@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 
-class SuperAdminController extends Controller
+class SuperAdminDepartmentController extends Controller
 {
     public function departments(): View
     {
@@ -24,9 +26,11 @@ class SuperAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:20', 'alpha_dash:ascii', 'unique:departments,code'],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
         ]);
 
-        Department::create($data);
+        $department = Department::create($data);
+        app(ActivityLogger::class)->record('department.created', $department, $data);
 
         return back()->with('status', 'Department created.');
     }
@@ -42,7 +46,21 @@ class SuperAdminController extends Controller
 
         $administrator = User::create($data);
         $administrator->assignRole(Role::findOrCreate('Department Admin', 'web'));
+        app(ActivityLogger::class)->record('department_admin.created', $administrator, ['department_id' => $data['department_id']]);
 
         return back()->with('status', 'Department Admin account created.');
+    }
+
+    public function updateDepartment(Request $request, Department $department): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:20', 'alpha_dash:ascii', Rule::unique('departments', 'code')->ignore($department->id)],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
+        ]);
+        $department->update($data);
+        app(ActivityLogger::class)->record('department.updated', $department, $data);
+
+        return back()->with('status', 'Department updated.');
     }
 }

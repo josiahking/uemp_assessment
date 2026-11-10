@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Result;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -26,7 +27,12 @@ class DepartmentWorkflowTest extends TestCase
         $this->withoutVite();
         $this->department = Department::create(['name' => 'Technology', 'code' => 'TECH']);
         $this->admin = User::factory()->create(['department_id' => $this->department->id]);
-        $this->admin->assignRole(Role::findOrCreate('Department Admin', 'web'));
+        $role = Role::findOrCreate('Department Admin', 'web');
+        $role->syncPermissions([
+            Permission::findOrCreate('review registrations', 'web'),
+            Permission::findOrCreate('review results', 'web'),
+        ]);
+        $this->admin->assignRole($role);
     }
 
     public function test_admin_can_confirm_a_pending_registration_only_once(): void
@@ -40,6 +46,11 @@ class DepartmentWorkflowTest extends TestCase
         $this->assertDatabaseHas('course_registrations', [
             'id' => $registration->id,
             'status' => 'confirmed',
+        ]);
+        $this->assertDatabaseHas('system_activities', [
+            'actor_id' => $this->admin->id,
+            'action' => 'course_registration.confirmed',
+            'subject_id' => $registration->id,
         ]);
 
         $this->patch("/admin/registrations/{$registration->id}", ['status' => 'rejected'])
@@ -84,6 +95,11 @@ class DepartmentWorkflowTest extends TestCase
             'result_id' => $result->id,
             'actor_id' => $this->admin->id,
             'event' => 'returned',
+        ]);
+        $this->assertDatabaseHas('system_activities', [
+            'actor_id' => $this->admin->id,
+            'action' => 'result.returned',
+            'subject_id' => $result->id,
         ]);
     }
 
