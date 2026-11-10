@@ -6,8 +6,10 @@ use App\Models\CourseRegistration;
 use App\Models\Result;
 use App\Models\ResultEvent;
 use App\Services\AcademicCalculator;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class LecturerPortalController extends Controller
@@ -46,26 +48,33 @@ class LecturerPortalController extends Controller
         $total = round((float) $data['ca_score'] + (float) $data['exam_score'], 2);
         $result = $registration->result ?? new Result(['course_registration_id' => $registration->id]);
         $previousStatus = $result->status;
-        $result->fill([
-            'submitted_by' => $lecturer->id,
-            'ca_score' => $data['ca_score'],
-            'exam_score' => $data['exam_score'],
-            'total_score' => $total,
-            'grade' => $this->calculator->gradeFor($total),
-            'status' => 'submitted',
-            'review_note' => null,
-            'submitted_at' => now(),
-            'reviewed_by' => null,
-            'reviewed_at' => null,
-        ])->save();
-        ResultEvent::create([
-            'result_id' => $result->id,
-            'actor_id' => $lecturer->id,
-            'event' => 'submitted',
-            'from_status' => $previousStatus,
-            'to_status' => 'submitted',
-            'metadata' => ['ca_score' => $data['ca_score'], 'exam_score' => $data['exam_score']],
-        ]);
+        DB::transaction(function () use ($result, $previousStatus, $data, $lecturer, $total) {
+            $result->fill([
+                'submitted_by' => $lecturer->id,
+                'ca_score' => $data['ca_score'],
+                'exam_score' => $data['exam_score'],
+                'total_score' => $total,
+                'grade' => $this->calculator->gradeFor($total),
+                'status' => 'submitted',
+                'review_note' => null,
+                'submitted_at' => now(),
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+            ])->save();
+            ResultEvent::create([
+                'result_id' => $result->id,
+                'actor_id' => $lecturer->id,
+                'event' => 'submitted',
+                'from_status' => $previousStatus,
+                'to_status' => 'submitted',
+                'metadata' => ['ca_score' => $data['ca_score'], 'exam_score' => $data['exam_score']],
+            ]);
+            app(ActivityLogger::class)->record('result.submitted', $result, [
+                'ca_score' => $data['ca_score'],
+                'exam_score' => $data['exam_score'],
+                'total_score' => $total,
+            ]);
+        });
 
         return back()->with('status', 'Result submitted for departmental review.');
     }

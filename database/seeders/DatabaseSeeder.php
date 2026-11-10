@@ -2,10 +2,16 @@
 
 namespace Database\Seeders;
 
+use App\Models\AcademicLevel;
+use App\Models\AcademicProgram;
+use App\Models\AcademicSession;
 use App\Models\Course;
+use App\Models\CourseOffering;
 use App\Models\CourseRegistration;
 use App\Models\Department;
+use App\Models\Faculty;
 use App\Models\Result;
+use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
@@ -27,6 +33,11 @@ class DatabaseSeeder extends Seeder
             'register courses',
             'view reports',
             'manage university',
+            'manage academic catalog',
+            'manage academic sessions',
+            'manage user accounts',
+            'manage roles and permissions',
+            'view system activity',
         ];
 
         foreach ($permissions as $permission) {
@@ -41,7 +52,7 @@ class DatabaseSeeder extends Seeder
         $superAdminRole->syncPermissions($permissions);
         $departmentAdminRole->syncPermissions([
             'manage students', 'manage lecturers', 'manage courses',
-            'review registrations', 'review results', 'view reports',
+            'review registrations', 'review results', 'view reports', 'manage academic catalog',
         ]);
         $lecturerRole->syncPermissions(['view assigned courses', 'submit results']);
         $studentRole->syncPermissions(['view own records', 'register courses']);
@@ -53,6 +64,42 @@ class DatabaseSeeder extends Seeder
         $business = Department::firstOrCreate(
             ['code' => 'BUS'],
             ['name' => 'Business Administration'],
+        );
+        $faculty = Faculty::firstOrCreate(
+            ['code' => 'FTE'],
+            ['name' => 'Faculty of Technology & Engineering', 'active' => true],
+        );
+        $technology->update(['faculty_id' => $faculty->id]);
+
+        $softwareProgram = AcademicProgram::firstOrCreate(
+            ['department_id' => $technology->id, 'code' => 'BSE'],
+            ['name' => 'Software Engineering', 'active' => true],
+        );
+        $accountingProgram = AcademicProgram::firstOrCreate(
+            ['department_id' => $business->id, 'code' => 'BACC'],
+            ['name' => 'Accounting', 'active' => true],
+        );
+        $technologyLevel = AcademicLevel::firstOrCreate(
+            ['department_id' => $technology->id, 'name' => '200'],
+            ['sort_order' => 200, 'active' => true],
+        );
+        $businessLevel = AcademicLevel::firstOrCreate(
+            ['department_id' => $business->id, 'name' => '100'],
+            ['sort_order' => 100, 'active' => true],
+        );
+        $softwareProgram->levels()->syncWithoutDetaching([$technologyLevel->id]);
+        $accountingProgram->levels()->syncWithoutDetaching([$businessLevel->id]);
+
+        $session = AcademicSession::firstOrCreate(
+            ['name' => '2026/2027'],
+            ['starts_at' => '2026-09-01', 'ends_at' => '2027-07-31', 'active' => true],
+        );
+        if (! AcademicSession::where('active', true)->exists()) {
+            $session->update(['active' => true]);
+        }
+        $semester = Semester::firstOrCreate(
+            ['academic_session_id' => $session->id, 'name' => 'First'],
+            ['starts_at' => '2026-09-01', 'ends_at' => '2026-12-20', 'active' => true],
         );
 
         $superAdmin = User::updateOrCreate(
@@ -77,6 +124,8 @@ class DatabaseSeeder extends Seeder
                 'faculty' => 'Technology & Engineering',
                 'program' => 'Software Engineering',
                 'academic_level' => '200',
+                'academic_program_id' => $softwareProgram->id,
+                'academic_level_id' => $technologyLevel->id,
             ],
         );
         $businessStudent = User::updateOrCreate(
@@ -89,6 +138,8 @@ class DatabaseSeeder extends Seeder
                 'faculty' => 'Business',
                 'program' => 'Accounting',
                 'academic_level' => '100',
+                'academic_program_id' => $accountingProgram->id,
+                'academic_level_id' => $businessLevel->id,
             ],
         );
 
@@ -104,6 +155,16 @@ class DatabaseSeeder extends Seeder
         );
         $course->lecturers()->syncWithoutDetaching([$lecturer->id]);
 
+        $offering = CourseOffering::firstOrCreate(
+            [
+                'course_id' => $course->id,
+                'semester_id' => $semester->id,
+                'academic_program_id' => $softwareProgram->id,
+                'academic_level_id' => $technologyLevel->id,
+            ],
+            ['active' => true],
+        );
+
         $registration = CourseRegistration::firstOrCreate(
             [
                 'student_id' => $student->id,
@@ -113,6 +174,9 @@ class DatabaseSeeder extends Seeder
             ],
             ['status' => 'pending'],
         );
+        if ($registration->course_offering_id !== $offering->id) {
+            $registration->update(['course_offering_id' => $offering->id]);
+        }
 
         Result::firstOrCreate(
             ['course_registration_id' => $registration->id],

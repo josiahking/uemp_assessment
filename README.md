@@ -35,10 +35,46 @@ UEMP is a role-based university administration portal. This MVP prioritizes the 
 ## Core workflows
 
 1. Department administrators manage students, lecturers, and courses in their department.
-2. Administrators review student course registrations and confirm eligible registrations.
-3. Lecturers submit course results; Department Admins review and approve, reject, or return them for correction.
-4. Administrators review departmental reports without accessing records outside their department.
-5. Super Admins manage the university structure, departments, and administrator accounts.
+2. Super Admins configure faculties, departments, programs, levels, academic sessions, semesters, accounts, roles, and permissions.
+3. Department administrators allocate courses to active semesters and eligible programs/levels.
+4. Students register for active offerings that match their department, program, level, session, and semester.
+5. Administrators review registrations; lecturers submit results; Department Admins approve, reject, or return them for correction.
+6. Administrators review departmental reports, while Super Admins monitor university-wide totals and administrative activity.
+
+## Architecture
+
+UEMP is a server-rendered Laravel application. Controllers validate requests and enforce workflow rules; Eloquent models express the academic relationships; Blade and Tailwind render role-specific interfaces. PostgreSQL is the intended runtime database, and Spatie Laravel Permission stores roles and permissions.
+
+```mermaid
+flowchart LR
+	Browser[Browser / Blade UI] --> Routes[Authenticated web routes]
+	Routes --> Access[Role and permission middleware]
+	Access --> Controllers[Workflow controllers]
+	Controllers --> Services[Academic calculator / activity logger]
+	Controllers --> Models[Eloquent domain models]
+	Services --> Models
+	Models --> Database[(PostgreSQL)]
+```
+
+The academic data model is relational: a Faculty contains Departments; Departments own Programs and Academic Levels; Programs define their available Levels; Academic Sessions contain Semesters; Courses are allocated through Course Offerings to a Semester and optionally a Program/Level. Students link to a Department, Program, and Level. Registrations reference both the Course and the selected Offering.
+
+## Engineering Decisions
+
+- Department Admin authorization is enforced at both route and query/write boundaries. Department-scoped model lookups return `404` for foreign records, avoiding accidental cross-department updates. The Super Admin role is the only role allowed on university setup and account-control routes.
+- Workflow permissions are checked in addition to roles. Super Admin can manage permission grants; the seeded roles receive only the permissions needed for their workflows.
+- Registration eligibility is based on an active Course Offering, not a user-supplied academic year or semester. The current session, semester, course, program, and level must be active and match the student. The server derives the registration year and semester from those records.
+- Result scores are bounded at CA 40 and examination 60. Totals and grades are calculated server-side. The assessment does not define a grade-point scale, so this MVP documents an explicit A-F, 4.0-scale assumption and calculates cumulative GPA from approved results only.
+- Result submissions and decisions retain result events; administrative actions are also written to a system activity feed. Result state changes and their audit records are saved transactionally.
+- Users are deactivated or suspended rather than deleted, preserving registration and result history. Inactive accounts are denied at login and on subsequent authenticated requests.
+- Tests use isolated in-memory SQLite for speed. PostgreSQL is the intended deployment database, but a PostgreSQL-backed test run is still required before production use.
+
+## Implemented Modules
+
+- Department dashboards, scoped student and lecturer profiles, program/level management, course management, lecturer allocation, registration review, result review, and departmental summary/performance reports.
+- Super Admin university dashboard, faculty/department/program/level/session/semester setup, account and role/permission management, university-wide registration/result totals, and administrative activity monitoring.
+- Student registration against eligible offerings; Lecturer result submission and correction resubmission.
+
+Reports are currently displayed in the portal; file export is not included in this MVP.
 
 ## Tech Stack
 
@@ -113,7 +149,7 @@ Run the test suite with:
 php artisan test
 ```
 
-Tests should cover authorization boundaries, department scoping, registration rules, and the result approval workflow. Use a dedicated test database configured in `phpunit.xml` or the test environment; do not point automated tests at development or production data.
+The feature and unit suite covers authorization boundaries, department scoping, academic setup, registration eligibility, result approval, account status, grading, and GPA. Use a dedicated test database configured in `phpunit.xml` or the test environment; do not point automated tests at development or production data.
 
 ## Assessment deliverables
 

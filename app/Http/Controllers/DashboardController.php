@@ -7,15 +7,23 @@ use App\Models\CourseRegistration;
 use App\Models\Result;
 use App\Models\User;
 use App\Services\AcademicCalculator;
+use App\Services\StudentCourseOfferingAvailability;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly AcademicCalculator $calculator) {}
+    public function __construct(
+        private readonly AcademicCalculator $calculator,
+        private readonly StudentCourseOfferingAvailability $offeringAvailability,
+    ) {}
 
-    public function __invoke(): View
+    public function __invoke(): View|RedirectResponse
     {
         $user = auth()->user();
+        if ($user->hasRole('Super Admin')) {
+            return redirect()->route('super-admin.dashboard');
+        }
         $isSuperAdmin = $user->hasRole('Super Admin');
         $departmentId = $user->department_id;
 
@@ -44,7 +52,7 @@ class DashboardController extends Controller
         }
 
         $registrations = $user->courseRegistrations()->count();
-        $courses = Course::where('department_id', $user->department_id)->where('active', true)->count();
+        $courses = $this->offeringAvailability->for($user)->distinct()->count('course_id');
         $results = Result::where('status', 'approved')
             ->whereHas('registration', fn ($query) => $query->where('student_id', $user->id))
             ->count();

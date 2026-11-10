@@ -11,7 +11,7 @@ class CourseRegistration extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['student_id', 'course_id', 'academic_year', 'semester', 'status'];
+    protected $fillable = ['student_id', 'course_id', 'course_offering_id', 'academic_year', 'semester', 'status'];
 
     public function student(): BelongsTo
     {
@@ -26,5 +26,10 @@ class CourseRegistration extends Model
     public function result(): HasOne
     {
         return $this->hasOne(Result::class);
+    }
+
+    public function offering(): BelongsTo
+    {
+        return $this->belongsTo(CourseOffering::class, 'course_offering_id');
     }
 }

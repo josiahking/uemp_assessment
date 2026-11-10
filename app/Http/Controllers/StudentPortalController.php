@@ -2,62 +2,64 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Course;
+use App\Models\CourseOffering;
 use App\Models\CourseRegistration;
 use App\Services\AcademicCalculator;
+use App\Services\ActivityLogger;
+use App\Services\StudentCourseOfferingAvailability;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StudentPortalController extends Controller
 {
-    public function __construct(private readonly AcademicCalculator $calculator) {}
+    public function __construct(
+        private readonly AcademicCalculator $calculator,
+        private readonly StudentCourseOfferingAvailability $offeringAvailability,
+    ) {}
 
     public function courses(): View
     {
         $student = auth()->user();
+        $offerings = $this->offeringAvailability->for($student)
+            ->with(['course.lecturers', 'course.department', 'semester.academicSession', 'program', 'academicLevel'])
+            ->get();
 
         return view('student.courses', [
-            'courses' => Course::where('department_id', $student->department_id)
-                ->where('active', true)
-                ->with('lecturers')
-                ->orderBy('code')
-                ->get(),
+            'offerings' => $offerings,
             'registrations' => $student->courseRegistrations()->with(['course', 'result'])->latest()->get(),
             'gpa' => $this->calculator->cumulativeGpa($student),
         ]);
     }
 
-    public function register(Request $request, Course $course): RedirectResponse
+    public function register(CourseOffering $offering): RedirectResponse
     {
-        $student = $request->user();
-        $course = Course::where('department_id', $student->department_id)
-            ->where('active', true)
-            ->findOrFail($course->id);
-
-        $data = $request->validate([
-            'academic_year' => ['required', 'regex:/^\d{4}\/\d{4}$/'],
-            'semester' => ['required', Rule::in(['First', 'Second', 'Summer'])],
-        ]);
+        $student = auth()->user();
+        $offering = $this->offeringAvailability->for($student)
+            ->with(['course', 'semester.academicSession'])
+            ->findOrFail($offering->id);
+        $course = $offering->course;
+        $academicYear = $offering->semester->academicSession->name;
+        $semesterName = $offering->semester->name;
 
         $alreadyRegistered = CourseRegistration::where('student_id', $student->id)
             ->where('course_id', $course->id)
-            ->where('academic_year', $data['academic_year'])
-            ->where('semester', $data['semester'])
+            ->where('academic_year', $academicYear)
+            ->where('semester', $semesterName)
             ->exists();
 
         if ($alreadyRegistered) {
             return back()->withErrors(['course_id' => 'You already registered for this course in that semester.']);
         }
 
-        CourseRegistration::create([
+        $registration = CourseRegistration::create([
             'student_id' => $student->id,
             'course_id' => $course->id,
-            'academic_year' => $data['academic_year'],
-            'semester' => $data['semester'],
+            'course_offering_id' => $offering->id,
+            'academic_year' => $academicYear,
+            'semester' => $semesterName,
             'status' => 'pending',
         ]);
+        app(ActivityLogger::class)->record('course_registration.submitted', $registration, ['course_offering_id' => $offering->id]);
 
         return back()->with('status', 'Course registration submitted for review.');
     }
