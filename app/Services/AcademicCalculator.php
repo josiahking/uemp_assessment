@@ -42,8 +42,7 @@ class AcademicCalculator
             return 0.0;
         }
 
-        $weightedPoints = $results->sum(fn (Result $result) =>
-            $this->gradePointFor($result->grade) * $result->registration->course->credit_units
+        $weightedPoints = $results->sum(fn (Result $result) => $this->gradePointFor($result->grade) * $result->registration->course->credit_units
         );
 
         return round($weightedPoints / $creditUnits, 2);

@@ -69,5 +69,4 @@ class LecturerPortalController extends Controller
 
         return back()->with('status', 'Result submitted for departmental review.');
     }
-
 }

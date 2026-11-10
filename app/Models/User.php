@@ -7,6 +7,9 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -18,17 +21,17 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
-    public function department(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
-    public function courseRegistrations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function courseRegistrations(): HasMany
     {
         return $this->hasMany(CourseRegistration::class, 'student_id');
     }
 
-    public function courses(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'course_lecturers', 'lecturer_id');
     }
