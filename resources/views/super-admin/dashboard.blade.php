@@ -13,7 +13,7 @@
         <article class="metric metric-accent"><span>Pending registrations</span><strong>{{ $pendingRegistrations }}</strong><small>Across all departments</small></article>
         <article class="metric metric-accent"><span>Results awaiting review</span><strong>{{ $submittedResults }}</strong><small>Department approval queue</small></article>
     </section>
-    <section class="data-section"><div class="table-toolbar"><div><h2>Recent administrative activity</h2><p>Latest account and academic structure changes</p></div></div>
+    <section class="data-section"><div class="table-toolbar"><div><h2>Recent administrative activity</h2><p>Latest account and academic structure changes</p></div><a class="text-link" href="{{ route('super-admin.activities.index') }}">View activity history</a></div>
         <div class="table-wrap"><table><thead><tr><th>Action</th><th>Performed by</th><th>Record</th><th>Time</th></tr></thead><tbody>@forelse ($activities as $activity)<tr><td><strong>{{ str($activity->action)->replace('.', ' ')->title() }}</strong></td><td>{{ $activity->actor?->name ?? 'Former account' }}</td><td>{{ class_basename($activity->subject_type ?? '') }} #{{ $activity->subject_id ?? '—' }}</td><td>{{ $activity->created_at->diffForHumans() }}</td></tr>@empty<tr><td class="empty-state" colspan="4">No administrative activity recorded yet.</td></tr>@endforelse</tbody></table></div>
     </section>
 @endsection

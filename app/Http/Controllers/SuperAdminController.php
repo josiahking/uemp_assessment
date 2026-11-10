@@ -14,6 +14,7 @@ use App\Models\Semester;
 use App\Models\SystemActivity;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\StudentNumberGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -257,14 +258,84 @@ class SuperAdminController extends Controller
         return back()->with('status', 'Semester updated.');
     }
 
-    public function accounts(): View
+    public function accounts(Request $request): View
     {
+        $rawSearch = $request->query('q', '');
+        $rawRole = $request->query('role', '');
+        $rawStatus = $request->query('account_status', '');
+        $rawDepartmentId = $request->query('department_id', '');
+        $filters = [
+            'q' => is_string($rawSearch) ? mb_substr(trim($rawSearch), 0, 100) : '',
+            'role' => is_string($rawRole) ? $rawRole : '',
+            'account_status' => is_string($rawStatus) ? $rawStatus : '',
+            'department_id' => is_string($rawDepartmentId) ? $rawDepartmentId : '',
+        ];
+        $query = User::with(['department', 'academicProgram', 'academicLevel', 'roles']);
+
+        if ($filters['q'] !== '') {
+            $search = mb_strtolower($filters['q']);
+            $query->where(fn ($users) => $users
+                ->whereRaw('LOWER(name) LIKE ?', ['%'.$search.'%'])
+                ->orWhereRaw('LOWER(email) LIKE ?', ['%'.$search.'%'])
+                ->orWhereRaw('LOWER(student_number) LIKE ?', ['%'.$search.'%']));
+        }
+        if (is_string($filters['role']) && Role::where('guard_name', 'web')->where('name', $filters['role'])->exists()) {
+            $query->role($filters['role']);
+        }
+        if (in_array($filters['account_status'], ['active', 'deactivated', 'suspended'], true)) {
+            $query->where('account_status', $filters['account_status']);
+        }
+        if (filter_var($filters['department_id'], FILTER_VALIDATE_INT)) {
+            $query->where('department_id', (int) $filters['department_id']);
+        }
+
         return view('super-admin.accounts', [
-            'users' => User::with(['department', 'academicProgram', 'academicLevel'])->with('roles')->orderBy('name')->get(),
+            'users' => $query->orderBy('name')->paginate(20)->withQueryString(),
             'departments' => Department::orderBy('name')->get(),
             'programs' => AcademicProgram::where('active', true)->orderBy('name')->get(),
             'levels' => AcademicLevel::where('active', true)->orderBy('sort_order')->get(),
             'roles' => Role::where('guard_name', 'web')->orderBy('name')->get(),
+            'filters' => $filters,
+        ]);
+    }
+
+    public function activities(Request $request): View
+    {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'action' => ['nullable', 'string', 'max:100'],
+            'actor_id' => ['nullable', 'integer', 'exists:users,id'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+        $query = SystemActivity::with('actor')->latest('created_at');
+
+        if (! empty($filters['q'])) {
+            $search = mb_strtolower($filters['q']);
+            $query->where(fn ($activities) => $activities
+                ->whereRaw('LOWER(action) LIKE ?', ['%'.$search.'%'])
+                ->orWhereRaw('LOWER(subject_type) LIKE ?', ['%'.$search.'%'])
+                ->orWhereHas('actor', fn ($actors) => $actors->whereRaw('LOWER(name) LIKE ?', ['%'.$search.'%'])));
+        }
+        if (! empty($filters['action'])) {
+            $query->where('action', $filters['action']);
+        }
+        if (! empty($filters['actor_id'])) {
+            $query->where('actor_id', $filters['actor_id']);
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('created_at', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('created_at', '<=', $filters['to']);
+        }
+
+        return view('super-admin.activities', [
+            'activities' => $query->paginate(20)->withQueryString(),
+            'filters' => $filters,
+            'actions' => SystemActivity::query()->distinct()->orderBy('action')->pluck('action'),
+            'actors' => User::whereIn('id', SystemActivity::query()->select('actor_id')->whereNotNull('actor_id')->distinct())
+                ->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -280,7 +351,6 @@ class SuperAdminController extends Controller
         ];
         if ($role === 'Student') {
             $rules += [
-                'student_number' => ['required', 'string', 'max:50', 'unique:users,student_number'],
                 'academic_program_id' => ['required', 'integer', 'exists:academic_programs,id'],
                 'academic_level_id' => ['required', 'integer', 'exists:academic_levels,id'],
             ];
@@ -295,6 +365,7 @@ class SuperAdminController extends Controller
             abort_if(! $program->levels()->whereKey($level->id)->exists(), 422, 'The selected level is not offered by this program.');
             $data['program'] = $program->name;
             $data['academic_level'] = $level->name;
+            $data['student_number'] = app(StudentNumberGenerator::class)->next();
         }
 
         $account = User::create([
@@ -354,7 +425,6 @@ class SuperAdminController extends Controller
         ];
         if ($role === 'Student') {
             $rules += [
-                'student_number' => ['required', 'string', 'max:50', Rule::unique('users', 'student_number')->ignore($user->id)],
                 'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
                 'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
             ];
@@ -370,7 +440,7 @@ class SuperAdminController extends Controller
             $level = AcademicLevel::where('department_id', $data['department_id'])->findOrFail($data['academic_level_id']);
             abort_if(! $program->levels()->whereKey($level->id)->exists(), 422, 'The selected level is not offered by this program.');
             $studentFields = [
-                'student_number' => $data['student_number'],
+                'student_number' => $user->student_number ?? app(StudentNumberGenerator::class)->next(),
                 'academic_program_id' => $program->id,
                 'academic_level_id' => $level->id,
                 'program' => $program->name,

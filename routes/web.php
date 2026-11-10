@@ -89,6 +89,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/accounts', [SuperAdminController::class, 'accounts'])->name('accounts.index');
         Route::post('/accounts', [SuperAdminController::class, 'storeAccount'])->name('accounts.store');
         Route::patch('/accounts/{user}', [SuperAdminController::class, 'updateAccount'])->name('accounts.update');
+        Route::get('/activity', [SuperAdminController::class, 'activities'])->name('activities.index');
         Route::get('/roles', [SuperAdminController::class, 'roles'])->name('roles.index');
         Route::post('/roles', [SuperAdminController::class, 'storeRole'])->name('roles.store');
         Route::put('/roles/{role}/permissions', [SuperAdminController::class, 'updateRolePermissions'])->name('roles.permissions');

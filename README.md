@@ -141,6 +141,12 @@ The seeded development accounts all use the password `password`:
 
 These are local demonstration credentials only. Change or remove them before deploying the application anywhere public.
 
+## Development seed data
+
+`php artisan db:seed` creates 20 students, 20 lecturers, 20 courses, 20 course offerings, and 20 registrations. Other academic tables and audit events are also kept to at most 20 records in the demo dataset. Registration and result records cover pending, confirmed, rejected, submitted, approved, and returned workflows. Student numbers are assigned incrementally in the `UEMP-YYYY-NNNNNN` format.
+
+Student, Super Admin account, registration, and activity lists use server-side filters and 20-row pagination.
+
 ## Testing
 
 Run the test suite with:

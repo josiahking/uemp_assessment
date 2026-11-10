@@ -43,20 +43,15 @@ class AcademicAdministrationTest extends TestCase
         $programId = $this->app['db']->table('academic_programs')->where('code', 'BSE-TEST')->value('id');
         $this->assertDatabaseHas('academic_program_levels', ['academic_program_id' => $programId, 'academic_level_id' => $levelId]);
 
-        $this->post('/super-admin/academic-sessions', [
-            'name' => '2027/2028',
-            'starts_at' => '2027-09-01',
-            'ends_at' => '2028-07-31',
-        ])->assertRedirect();
         $sessionId = $this->app['db']->table('academic_sessions')->where('name', '2027/2028')->value('id');
 
         $this->post('/super-admin/academic-sessions/'.$sessionId.'/semesters', [
-            'name' => 'First',
-            'starts_at' => '2027-09-01',
-            'ends_at' => '2027-12-20',
+            'name' => 'Second',
+            'starts_at' => '2028-01-10',
+            'ends_at' => '2028-05-30',
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('semesters', ['academic_session_id' => $sessionId, 'name' => 'First']);
+        $this->assertDatabaseHas('semesters', ['academic_session_id' => $sessionId, 'name' => 'Second']);
     }
 
     public function test_super_admin_can_suspend_accounts_and_suspended_users_cannot_sign_in(): void
@@ -124,14 +119,14 @@ class AcademicAdministrationTest extends TestCase
         $previousSessionId = $this->app['db']->table('academic_sessions')->where('active', true)->value('id');
 
         $this->actingAs($superAdmin)->post('/super-admin/academic-sessions', [
-            'name' => '2027/2028',
-            'starts_at' => '2027-09-01',
-            'ends_at' => '2028-07-31',
+            'name' => '2028/2029',
+            'starts_at' => '2028-09-01',
+            'ends_at' => '2029-07-31',
             'active' => true,
         ])->assertRedirect();
 
         $this->assertDatabaseHas('academic_sessions', ['id' => $previousSessionId, 'active' => false]);
-        $this->assertDatabaseHas('academic_sessions', ['name' => '2027/2028', 'active' => true]);
+        $this->assertDatabaseHas('academic_sessions', ['name' => '2028/2029', 'active' => true]);
         $this->assertSame(1, $this->app['db']->table('academic_sessions')->where('active', true)->count());
     }
 
@@ -141,18 +136,18 @@ class AcademicAdministrationTest extends TestCase
         $superAdmin = User::where('email', 'superadmin@uemp.test')->firstOrFail();
         $previousSessionId = $this->app['db']->table('academic_sessions')->where('active', true)->value('id');
         $newSessionId = $this->app['db']->table('academic_sessions')->insertGetId([
-            'name' => '2027/2028',
-            'starts_at' => '2027-09-01',
-            'ends_at' => '2028-07-31',
+            'name' => '2028/2029',
+            'starts_at' => '2028-09-01',
+            'ends_at' => '2029-07-31',
             'active' => false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         $this->actingAs($superAdmin)->patch('/super-admin/academic-sessions/'.$newSessionId, [
-            'name' => '2027/2028',
-            'starts_at' => '2027-09-01',
-            'ends_at' => '2028-07-31',
+            'name' => '2028/2029',
+            'starts_at' => '2028-09-01',
+            'ends_at' => '2029-07-31',
             'active' => true,
         ])->assertRedirect();
 

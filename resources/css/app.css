@@ -102,7 +102,11 @@ h1, h2 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; }
 .table-toolbar h2 { color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; }
 .table-toolbar p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
 .search-input { width: min(240px, 42vw); }
+.filter-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.filter-toolbar input, .filter-toolbar select { min-width: 130px; }
+.pagination-wrap { padding: 14px 18px; border-top: 1px solid var(--line); }
 input, select, textarea { min-width: 0; border: 1px solid #dfe5df; border-radius: 4px; color: #263b32; background: white; }
+input[readonly] { color: #66746b; background: #f3f5f2; cursor: not-allowed; }
 input, select { min-height: 36px; padding: 0 10px; }
 textarea { padding: 8px 10px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: #5b9c78; outline: 3px solid rgba(91,156,120,.15); }

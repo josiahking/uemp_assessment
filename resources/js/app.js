@@ -10,3 +10,7 @@ document.querySelectorAll('[data-table-search]').forEach((input) => {
 		});
 	});
 });
+
+document.querySelectorAll('input[name="student_number"]').forEach((input) => {
+	input.readOnly = true;
+});

@@ -13,6 +13,7 @@ use App\Models\ResultEvent;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\StudentNumberGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,13 +25,27 @@ class DepartmentAdminController extends Controller
     public function students(): View
     {
         $user = auth()->user();
-        $students = $this->usersForRole('Student')
-            ->with('department')
-            ->orderBy('name')
-            ->get();
+        $request = request();
+        $rawSearch = $request->query('q', '');
+        $search = is_string($rawSearch) ? mb_substr(trim($rawSearch), 0, 100) : '';
+        $rawStatus = $request->query('account_status');
+        $status = is_string($rawStatus) ? $rawStatus : '';
+        $studentsQuery = $this->usersForRole('Student')->with(['department', 'academicProgram', 'academicLevel']);
+
+        if ($search !== '') {
+            $studentsQuery->where(fn ($query) => $query
+                ->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($search).'%'])
+                ->orWhereRaw('LOWER(email) LIKE ?', ['%'.mb_strtolower($search).'%'])
+                ->orWhereRaw('LOWER(student_number) LIKE ?', ['%'.mb_strtolower($search).'%']));
+        }
+        if (in_array($status, ['active', 'deactivated', 'suspended'], true)) {
+            $studentsQuery->where('account_status', $status);
+        }
+        $students = $studentsQuery->orderBy('name')->paginate(20)->withQueryString();
 
         return view('admin.students.index', [
             'students' => $students,
+            'filters' => ['q' => $search, 'account_status' => $status],
             'departments' => $user->hasRole('Super Admin') ? Department::orderBy('name')->get() : collect(),
             'programs' => $user->hasRole('Super Admin') ? AcademicProgram::where('active', true)->orderBy('name')->get() : AcademicProgram::where('department_id', $user->department_id)->where('active', true)->orderBy('name')->get(),
             'levels' => $user->hasRole('Super Admin') ? AcademicLevel::where('active', true)->orderBy('sort_order')->get() : AcademicLevel::where('department_id', $user->department_id)->where('active', true)->orderBy('sort_order')->get(),
@@ -300,13 +315,39 @@ class DepartmentAdminController extends Controller
         return back()->with('status', 'Lecturer removed from course.');
     }
 
-    public function registrations(): View
+    public function registrations(Request $request): View
     {
-        $registrations = $this->registrationsForDepartment()
-            ->latest()
-            ->get();
+        $query = $this->registrationsForDepartment();
+        $pendingCount = (clone $query)->where('status', 'pending')->count();
+        $rawStatus = $request->query('status');
+        $status = is_string($rawStatus) ? $rawStatus : '';
+        $rawAcademicYear = $request->query('academic_year', '');
+        $academicYear = is_string($rawAcademicYear) ? mb_substr(trim($rawAcademicYear), 0, 9) : '';
+        $rawSemester = $request->query('semester');
+        $semester = is_string($rawSemester) ? $rawSemester : '';
+        $rawDepartmentId = $request->query('department_id');
+        $departmentId = $request->user()->hasRole('Super Admin') && is_string($rawDepartmentId) ? $rawDepartmentId : null;
 
-        return view('admin.registrations.index', compact('registrations'));
+        if (in_array($status, ['pending', 'confirmed', 'rejected'], true)) {
+            $query->where('status', $status);
+        }
+        if ($academicYear !== '') {
+            $query->where('academic_year', $academicYear);
+        }
+        if (in_array($semester, ['First', 'Second', 'Summer'], true)) {
+            $query->where('semester', $semester);
+        }
+        if ($departmentId && $request->user()->hasRole('Super Admin')) {
+            $query->whereHas('course', fn ($courses) => $courses->where('department_id', $departmentId));
+        }
+        $registrations = $query->with(['student.department', 'course'])->latest()->paginate(20)->withQueryString();
+
+        return view('admin.registrations.index', [
+            'registrations' => $registrations,
+            'pendingCount' => $pendingCount,
+            'filters' => compact('status', 'academicYear', 'semester', 'departmentId'),
+            'departments' => $request->user()->hasRole('Super Admin') ? Department::orderBy('name')->get() : collect(),
+        ]);
     }
 
     public function updateRegistration(Request $request, CourseRegistration $registration): RedirectResponse
@@ -409,7 +450,6 @@ class DepartmentAdminController extends Controller
 
         if ($role === 'Student') {
             $rules += [
-                'student_number' => ['required', 'string', 'max:50', 'unique:users,student_number'],
                 'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
                 'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
             ];
@@ -426,6 +466,7 @@ class DepartmentAdminController extends Controller
             }
             $data['program'] = $program->name;
             $data['academic_level'] = AcademicLevel::findOrFail($data['academic_level_id'])->name;
+            $data['student_number'] = app(StudentNumberGenerator::class)->next();
         }
         $data['account_status'] = 'active';
 
@@ -449,7 +490,6 @@ class DepartmentAdminController extends Controller
 
         if ($isStudent) {
             $rules += [
-                'student_number' => ['required', 'string', 'max:50', Rule::unique('users', 'student_number')->ignore($request->route('student')?->id)],
                 'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
                 'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
             ];
