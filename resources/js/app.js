@@ -14,3 +14,31 @@ document.querySelectorAll('[data-table-search]').forEach((input) => {
 document.querySelectorAll('input[name="student_number"]').forEach((input) => {
 	input.readOnly = true;
 });
+
+const menuToggle = document.querySelector('[data-menu-toggle]');
+const sidebar = menuToggle?.closest('.sidebar');
+
+menuToggle?.addEventListener('click', () => {
+    const isOpen = menuToggle.getAttribute('aria-expanded') === 'true';
+
+    menuToggle.setAttribute('aria-expanded', String(!isOpen));
+    menuToggle.setAttribute('aria-label', isOpen ? 'Open main menu' : 'Close main menu');
+    sidebar?.classList.toggle('is-open', !isOpen);
+});
+
+sidebar?.querySelectorAll('.primary-nav a').forEach((link) => {
+    link.addEventListener('click', () => {
+        menuToggle?.setAttribute('aria-expanded', 'false');
+        menuToggle?.setAttribute('aria-label', 'Open main menu');
+        sidebar.classList.remove('is-open');
+    });
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && sidebar?.classList.contains('is-open')) {
+        menuToggle?.setAttribute('aria-expanded', 'false');
+        menuToggle?.setAttribute('aria-label', 'Open main menu');
+        sidebar.classList.remove('is-open');
+        menuToggle?.focus();
+    }
+});
