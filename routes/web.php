@@ -2,13 +2,17 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DepartmentAdminController;
 use App\Http\Controllers\DepartmentCatalogController;
 use App\Http\Controllers\DepartmentPeopleController;
 use App\Http\Controllers\DepartmentReviewController;
 use App\Http\Controllers\LecturerPortalController;
 use App\Http\Controllers\StudentPortalController;
-use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SuperAdminAcademicController;
+use App\Http\Controllers\SuperAdminAccountController;
+use App\Http\Controllers\SuperAdminActivityController;
+use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SuperAdminDepartmentController;
+use App\Http\Controllers\SuperAdminRoleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check()
@@ -73,28 +77,28 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     Route::middleware('role:Super Admin')->prefix('super-admin')->name('super-admin.')->group(function () {
-        Route::get('/', [SuperAdminController::class, 'dashboard'])->name('dashboard');
-        Route::get('/academics', [SuperAdminController::class, 'academics'])->name('academics.index');
-        Route::get('/departments', [SuperAdminController::class, 'departments'])->name('departments.index');
-        Route::post('/departments', [SuperAdminController::class, 'storeDepartment'])->name('departments.store');
-        Route::patch('/departments/{department}', [SuperAdminController::class, 'updateDepartment'])->name('departments.update');
-        Route::post('/administrators', [SuperAdminController::class, 'storeAdministrator'])->name('administrators.store');
-        Route::post('/faculties', [SuperAdminController::class, 'storeFaculty'])->name('faculties.store');
-        Route::patch('/faculties/{faculty}', [SuperAdminController::class, 'updateFaculty'])->name('faculties.update');
-        Route::post('/programs', [SuperAdminController::class, 'storeProgram'])->name('programs.store');
-        Route::patch('/programs/{program}', [SuperAdminController::class, 'updateProgram'])->name('programs.update');
-        Route::post('/levels', [SuperAdminController::class, 'storeLevel'])->name('levels.store');
-        Route::patch('/levels/{level}', [SuperAdminController::class, 'updateLevel'])->name('levels.update');
-        Route::post('/academic-sessions', [SuperAdminController::class, 'storeSession'])->name('academic-sessions.store');
-        Route::patch('/academic-sessions/{session}', [SuperAdminController::class, 'updateSession'])->name('academic-sessions.update');
-        Route::post('/academic-sessions/{session}/semesters', [SuperAdminController::class, 'storeSemester'])->name('semesters.store');
-        Route::patch('/semesters/{semester}', [SuperAdminController::class, 'updateSemester'])->name('semesters.update');
-        Route::get('/accounts', [SuperAdminController::class, 'accounts'])->name('accounts.index');
-        Route::post('/accounts', [SuperAdminController::class, 'storeAccount'])->name('accounts.store');
-        Route::patch('/accounts/{user}', [SuperAdminController::class, 'updateAccount'])->name('accounts.update');
-        Route::get('/activity', [SuperAdminController::class, 'activities'])->name('activities.index');
-        Route::get('/roles', [SuperAdminController::class, 'roles'])->name('roles.index');
-        Route::post('/roles', [SuperAdminController::class, 'storeRole'])->name('roles.store');
-        Route::put('/roles/{role}/permissions', [SuperAdminController::class, 'updateRolePermissions'])->name('roles.permissions');
+        Route::get('/', [SuperAdminDashboardController::class, 'dashboard'])->name('dashboard');
+        Route::get('/academics', [SuperAdminAcademicController::class, 'academics'])->name('academics.index');
+        Route::get('/departments', [SuperAdminDepartmentController::class, 'departments'])->name('departments.index');
+        Route::post('/departments', [SuperAdminDepartmentController::class, 'storeDepartment'])->name('departments.store');
+        Route::patch('/departments/{department}', [SuperAdminDepartmentController::class, 'updateDepartment'])->name('departments.update');
+        Route::post('/administrators', [SuperAdminDepartmentController::class, 'storeAdministrator'])->name('administrators.store');
+        Route::post('/faculties', [SuperAdminAcademicController::class, 'storeFaculty'])->name('faculties.store');
+        Route::patch('/faculties/{faculty}', [SuperAdminAcademicController::class, 'updateFaculty'])->name('faculties.update');
+        Route::post('/programs', [SuperAdminAcademicController::class, 'storeProgram'])->name('programs.store');
+        Route::patch('/programs/{program}', [SuperAdminAcademicController::class, 'updateProgram'])->name('programs.update');
+        Route::post('/levels', [SuperAdminAcademicController::class, 'storeLevel'])->name('levels.store');
+        Route::patch('/levels/{level}', [SuperAdminAcademicController::class, 'updateLevel'])->name('levels.update');
+        Route::post('/academic-sessions', [SuperAdminAcademicController::class, 'storeSession'])->name('academic-sessions.store');
+        Route::patch('/academic-sessions/{session}', [SuperAdminAcademicController::class, 'updateSession'])->name('academic-sessions.update');
+        Route::post('/academic-sessions/{session}/semesters', [SuperAdminAcademicController::class, 'storeSemester'])->name('semesters.store');
+        Route::patch('/semesters/{semester}', [SuperAdminAcademicController::class, 'updateSemester'])->name('semesters.update');
+        Route::get('/accounts', [SuperAdminAccountController::class, 'accounts'])->name('accounts.index');
+        Route::post('/accounts', [SuperAdminAccountController::class, 'storeAccount'])->name('accounts.store');
+        Route::patch('/accounts/{user}', [SuperAdminAccountController::class, 'updateAccount'])->name('accounts.update');
+        Route::get('/activity', [SuperAdminActivityController::class, 'activities'])->name('activities.index');
+        Route::get('/roles', [SuperAdminRoleController::class, 'roles'])->name('roles.index');
+        Route::post('/roles', [SuperAdminRoleController::class, 'storeRole'])->name('roles.store');
+        Route::put('/roles/{role}/permissions', [SuperAdminRoleController::class, 'updateRolePermissions'])->name('roles.permissions');
     });
 });
