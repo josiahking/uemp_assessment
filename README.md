@@ -66,7 +66,7 @@ The academic data model is relational: a Faculty contains Departments; Departmen
 - Result scores are bounded at CA 40 and examination 60. Totals and grades are calculated server-side. The assessment does not define a grade-point scale, so this MVP documents an explicit A-F, 4.0-scale assumption and calculates cumulative GPA from approved results only.
 - Result submissions and decisions retain result events; administrative actions are also written to a system activity feed. Result state changes and their audit records are saved transactionally.
 - Users are deactivated or suspended rather than deleted, preserving registration and result history. Inactive accounts are denied at login and on subsequent authenticated requests.
-- Tests use isolated in-memory SQLite for speed. PostgreSQL is the intended deployment database, but a PostgreSQL-backed test run is still required before production use.
+- PHPUnit defaults to isolated in-memory SQLite. The Docker setup also provides a separate PostgreSQL test database for database-specific validation.
 
 ## Implemented Modules
 
@@ -96,6 +96,45 @@ Reports are currently displayed in the portal; file export is not included in th
 | 0-49 | F | 0.0 |
 
 Cumulative GPA is credit-weighted and uses approved results only. The scale is a documented MVP default and can be changed to match university policy.
+
+## Docker setup
+
+Requirements: Docker Desktop with Docker Compose.
+
+The Compose stack runs PHP 8.4, PostgreSQL 18, a queue worker, and the Vite development server. The database and test suite use separate PostgreSQL databases. The app source is mounted into the PHP container, so PHP changes are available immediately; Vite watches frontend changes.
+
+1. Create the local environment file:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+   For local Docker use, Compose supplies the database connection settings and uses `uemp-local` as the PostgreSQL password by default. You can set `POSTGRES_PASSWORD` in `.env` to choose another local password.
+
+2. Start PostgreSQL, generate the app key, and initialize the development database:
+
+   ```sh
+   docker compose up -d db
+   docker compose run --rm app php artisan key:generate
+   docker compose run --rm app php artisan migrate --seed --force
+   ```
+
+3. Start the app, queue worker, and Vite server:
+
+   ```sh
+   docker compose up --build -d app worker vite
+   ```
+
+   Open <http://localhost:8000>. Vite is available on port 5173, and PostgreSQL is exposed to host tools on port 5433.
+
+View logs and stop the stack with:
+
+```sh
+docker compose logs -f app db worker vite
+docker compose down
+```
+
+The PostgreSQL data is kept in a named Docker volume when the stack stops. `docker compose down -v` removes that volume and permanently deletes the local development and test databases.
 
 ## Local setup
 
@@ -149,13 +188,14 @@ Student, Super Admin account, registration, and activity lists use server-side f
 
 ## Testing
 
-Run the test suite with:
+The default `php artisan test` run uses the in-memory SQLite database configured in `phpunit.xml`. To run the suite against PostgreSQL with Docker, first start the database as described above, then run:
 
 ```sh
-php artisan test
+docker compose --profile testing run --rm test php artisan migrate --force
+docker compose --profile testing run --rm test
 ```
 
-The feature and unit suite covers authorization boundaries, department scoping, academic setup, registration eligibility, result approval, account status, grading, and GPA. Use a dedicated test database configured in `phpunit.xml` or the test environment; do not point automated tests at development or production data.
+The test profile connects to the separate `uemp_test` database, which is created when the PostgreSQL volume is initialized. The feature and unit suite covers authorization boundaries, department scoping, academic setup, registration eligibility, result approval, account status, grading, and GPA. Never point automated tests at production or a database containing data you need to keep.
 
 ## Assessment deliverables
 
