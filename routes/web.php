@@ -3,6 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentAdminController;
+use App\Http\Controllers\DepartmentCatalogController;
+use App\Http\Controllers\DepartmentPeopleController;
+use App\Http\Controllers\DepartmentReviewController;
 use App\Http\Controllers\LecturerPortalController;
 use App\Http\Controllers\StudentPortalController;
 use App\Http\Controllers\SuperAdminController;
@@ -23,40 +26,40 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('role:Department Admin|Super Admin')->prefix('admin')->name('admin.')->group(function () {
         Route::middleware('permission:manage academic catalog')->group(function () {
-            Route::get('/academics', [DepartmentAdminController::class, 'academics'])->name('academics.index');
-            Route::post('/academic-levels', [DepartmentAdminController::class, 'storeAcademicLevel'])->name('academic-levels.store');
-            Route::patch('/academic-levels/{level}', [DepartmentAdminController::class, 'updateAcademicLevel'])->name('academic-levels.update');
-            Route::post('/programs', [DepartmentAdminController::class, 'storeProgram'])->name('programs.store');
-            Route::patch('/programs/{program}', [DepartmentAdminController::class, 'updateProgram'])->name('programs.update');
+            Route::get('/academics', [DepartmentCatalogController::class, 'academics'])->name('academics.index');
+            Route::post('/academic-levels', [DepartmentCatalogController::class, 'storeAcademicLevel'])->name('academic-levels.store');
+            Route::patch('/academic-levels/{level}', [DepartmentCatalogController::class, 'updateAcademicLevel'])->name('academic-levels.update');
+            Route::post('/programs', [DepartmentCatalogController::class, 'storeProgram'])->name('programs.store');
+            Route::patch('/programs/{program}', [DepartmentCatalogController::class, 'updateProgram'])->name('programs.update');
         });
         Route::middleware('permission:manage students')->group(function () {
-            Route::get('/students', [DepartmentAdminController::class, 'students'])->name('students.index');
-            Route::post('/students', [DepartmentAdminController::class, 'storeStudent'])->name('students.store');
-            Route::patch('/students/{student}', [DepartmentAdminController::class, 'updateStudent'])->name('students.update');
+            Route::get('/students', [DepartmentPeopleController::class, 'students'])->name('students.index');
+            Route::post('/students', [DepartmentPeopleController::class, 'storeStudent'])->name('students.store');
+            Route::patch('/students/{student}', [DepartmentPeopleController::class, 'updateStudent'])->name('students.update');
         });
         Route::middleware('permission:manage lecturers')->group(function () {
-            Route::get('/lecturers', [DepartmentAdminController::class, 'lecturers'])->name('lecturers.index');
-            Route::post('/lecturers', [DepartmentAdminController::class, 'storeLecturer'])->name('lecturers.store');
-            Route::patch('/lecturers/{lecturer}', [DepartmentAdminController::class, 'updateLecturer'])->name('lecturers.update');
+            Route::get('/lecturers', [DepartmentPeopleController::class, 'lecturers'])->name('lecturers.index');
+            Route::post('/lecturers', [DepartmentPeopleController::class, 'storeLecturer'])->name('lecturers.store');
+            Route::patch('/lecturers/{lecturer}', [DepartmentPeopleController::class, 'updateLecturer'])->name('lecturers.update');
         });
         Route::middleware('permission:manage courses')->group(function () {
-            Route::get('/courses', [DepartmentAdminController::class, 'courses'])->name('courses.index');
-            Route::post('/courses', [DepartmentAdminController::class, 'storeCourse'])->name('courses.store');
-            Route::patch('/courses/{course}', [DepartmentAdminController::class, 'updateCourse'])->name('courses.update');
-            Route::post('/courses/{course}/offerings', [DepartmentAdminController::class, 'storeOffering'])->name('courses.offerings.store');
-            Route::patch('/offerings/{offering}', [DepartmentAdminController::class, 'updateOffering'])->name('offerings.update');
-            Route::post('/courses/{course}/lecturers', [DepartmentAdminController::class, 'assignLecturer'])->name('courses.assign-lecturer');
-            Route::delete('/courses/{course}/lecturers/{lecturer}', [DepartmentAdminController::class, 'unassignLecturer'])->name('courses.unassign-lecturer');
+            Route::get('/courses', [DepartmentCatalogController::class, 'courses'])->name('courses.index');
+            Route::post('/courses', [DepartmentCatalogController::class, 'storeCourse'])->name('courses.store');
+            Route::patch('/courses/{course}', [DepartmentCatalogController::class, 'updateCourse'])->name('courses.update');
+            Route::post('/courses/{course}/offerings', [DepartmentCatalogController::class, 'storeOffering'])->name('courses.offerings.store');
+            Route::patch('/offerings/{offering}', [DepartmentCatalogController::class, 'updateOffering'])->name('offerings.update');
+            Route::post('/courses/{course}/lecturers', [DepartmentCatalogController::class, 'assignLecturer'])->name('courses.assign-lecturer');
+            Route::delete('/courses/{course}/lecturers/{lecturer}', [DepartmentCatalogController::class, 'unassignLecturer'])->name('courses.unassign-lecturer');
         });
         Route::middleware('permission:review registrations')->group(function () {
-            Route::get('/registrations', [DepartmentAdminController::class, 'registrations'])->name('registrations.index');
-            Route::patch('/registrations/{registration}', [DepartmentAdminController::class, 'updateRegistration'])->name('registrations.update');
+            Route::get('/registrations', [DepartmentReviewController::class, 'registrations'])->name('registrations.index');
+            Route::patch('/registrations/{registration}', [DepartmentReviewController::class, 'updateRegistration'])->name('registrations.update');
         });
         Route::middleware('permission:review results')->group(function () {
-            Route::get('/results', [DepartmentAdminController::class, 'results'])->name('results.index');
-            Route::patch('/results/{result}', [DepartmentAdminController::class, 'reviewResult'])->name('results.review');
+            Route::get('/results', [DepartmentReviewController::class, 'results'])->name('results.index');
+            Route::patch('/results/{result}', [DepartmentReviewController::class, 'reviewResult'])->name('results.review');
         });
-        Route::middleware('permission:view reports')->get('/reports', [DepartmentAdminController::class, 'reports'])->name('reports.index');
+        Route::middleware('permission:view reports')->get('/reports', [DepartmentReviewController::class, 'reports'])->name('reports.index');
     });
 
     Route::middleware('role:Student')->prefix('student')->name('student.')->group(function () {
