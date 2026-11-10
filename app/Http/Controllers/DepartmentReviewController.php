@@ -6,17 +6,17 @@ use App\Models\Course;
 use App\Models\CourseRegistration;
 use App\Models\Department;
 use App\Models\Result;
-use App\Models\ResultEvent;
 use App\Models\User;
-use App\Services\ActivityLogger;
+use App\Services\DepartmentReviewService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class DepartmentReviewController extends Controller
 {
+    public function __construct(private readonly DepartmentReviewService $reviewService) {}
+
     public function registrations(Request $request): View
     {
         $query = $this->registrationsForDepartment();
@@ -55,13 +55,8 @@ class DepartmentReviewController extends Controller
     public function updateRegistration(Request $request, CourseRegistration $registration): RedirectResponse
     {
         $registration = $this->registrationsForDepartment()->findOrFail($registration->id);
-        abort_unless($registration->status === 'pending', 409);
-
         $data = $request->validate(['status' => ['required', Rule::in(['confirmed', 'rejected'])]]);
-        DB::transaction(function () use ($registration, $data) {
-            $registration->update(['status' => $data['status']]);
-            app(ActivityLogger::class)->record('course_registration.'.$data['status'], $registration);
-        });
+        $this->reviewService->decideRegistration($registration, $data['status']);
 
         return back()->with('status', 'Registration '.$data['status'].'.');
     }
@@ -76,31 +71,11 @@ class DepartmentReviewController extends Controller
     public function reviewResult(Request $request, Result $result): RedirectResponse
     {
         $result = $this->resultsForDepartment()->findOrFail($result->id);
-        abort_unless($result->status === 'submitted', 409);
-        abort_if($result->submitted_by === $request->user()->id, 403);
-
         $data = $request->validate([
             'status' => ['required', Rule::in(['approved', 'rejected', 'returned'])],
             'review_note' => ['required_if:status,rejected,returned', 'nullable', 'string', 'max:2000'],
         ]);
-
-        DB::transaction(function () use ($result, $data, $request) {
-            $result->update([
-                'status' => $data['status'],
-                'review_note' => $data['review_note'] ?? null,
-                'reviewed_by' => $request->user()->id,
-                'reviewed_at' => now(),
-            ]);
-            ResultEvent::create([
-                'result_id' => $result->id,
-                'actor_id' => $request->user()->id,
-                'event' => $data['status'],
-                'from_status' => 'submitted',
-                'to_status' => $data['status'],
-                'metadata' => ['review_note' => $data['review_note'] ?? null],
-            ]);
-            app(ActivityLogger::class)->record('result.'.$data['status'], $result, ['review_note' => $data['review_note'] ?? null]);
-        });
+        $this->reviewService->reviewResult($result, $request->user(), $data['status'], $data['review_note'] ?? null);
 
         return back()->with('status', 'Result '.$data['status'].'.');
     }

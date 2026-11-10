@@ -9,7 +9,7 @@ use App\Models\CourseOffering;
 use App\Models\Department;
 use App\Models\Semester;
 use App\Models\User;
-use App\Services\ActivityLogger;
+use App\Services\DepartmentCourseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,6 +17,8 @@ use Illuminate\View\View;
 
 class DepartmentCourseController extends Controller
 {
+    public function __construct(private readonly DepartmentCourseService $courseService) {}
+
     public function courses(): View
     {
         $user = auth()->user();
@@ -47,14 +49,7 @@ class DepartmentCourseController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'credit_units' => ['required', 'integer', 'between:1,10'],
         ]);
-        $course = Course::create([
-            'department_id' => $departmentId,
-            'code' => $data['code'],
-            'title' => $data['title'],
-            'credit_units' => $data['credit_units'],
-            'active' => true,
-        ]);
-        app(ActivityLogger::class)->record('course.created', $course);
+        $this->courseService->createCourse($data, (int) $departmentId);
 
         return back()->with('status', 'Course created.');
     }
@@ -68,8 +63,7 @@ class DepartmentCourseController extends Controller
             'credit_units' => ['required', 'integer', 'between:1,10'],
             'active' => ['required', 'boolean'],
         ]);
-        $course->update($data);
-        app(ActivityLogger::class)->record('course.updated', $course, $data);
+        $this->courseService->updateCourse($course, $data);
 
         return back()->with('status', 'Course updated.');
     }
@@ -82,21 +76,7 @@ class DepartmentCourseController extends Controller
             'academic_program_id' => ['nullable', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $course->department_id)],
             'academic_level_id' => ['nullable', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $course->department_id)],
         ]);
-        if ($data['academic_program_id'] && $data['academic_level_id'] && ! AcademicProgram::find($data['academic_program_id'])
-            ->levels()->whereKey($data['academic_level_id'])->exists()) {
-            return back()->withErrors(['academic_level_id' => 'The selected level is not offered by this program.']);
-        }
-        $duplicate = CourseOffering::where('course_id', $course->id)
-            ->where('semester_id', $data['semester_id'])
-            ->where('academic_program_id', $data['academic_program_id'])
-            ->where('academic_level_id', $data['academic_level_id'])
-            ->exists();
-        if ($duplicate) {
-            return back()->withErrors(['semester_id' => 'This course offering already exists.']);
-        }
-
-        $offering = CourseOffering::create(['course_id' => $course->id, ...$data, 'active' => true]);
-        app(ActivityLogger::class)->record('course_offering.created', $offering, $data);
+        $this->courseService->createOffering($course, $data);
 
         return back()->with('status', 'Course offering created.');
     }
@@ -109,8 +89,7 @@ class DepartmentCourseController extends Controller
             ))
             ->firstOrFail();
         $data = $request->validate(['active' => ['required', 'boolean']]);
-        $offering->update($data);
-        app(ActivityLogger::class)->record('course_offering.updated', $offering, $data);
+        $this->courseService->updateOffering($offering, $data);
 
         return back()->with('status', 'Course offering updated.');
     }
@@ -120,8 +99,7 @@ class DepartmentCourseController extends Controller
         $course = $this->coursesForDepartment()->findOrFail($course->id);
         $data = $request->validate(['lecturer_id' => ['required', 'integer', 'exists:users,id']]);
         $lecturer = User::role('Lecturer')->where('department_id', $course->department_id)->findOrFail($data['lecturer_id']);
-        $course->lecturers()->syncWithoutDetaching([$lecturer->id]);
-        app(ActivityLogger::class)->record('lecturer.assigned_to_course', $course, ['lecturer_id' => $lecturer->id]);
+        $this->courseService->assignLecturer($course, $lecturer);
 
         return back()->with('status', 'Lecturer assigned to course.');
     }
@@ -130,8 +108,7 @@ class DepartmentCourseController extends Controller
     {
         $course = $this->coursesForDepartment()->findOrFail($course->id);
         $lecturer = User::role('Lecturer')->where('department_id', $course->department_id)->findOrFail($lecturer->id);
-        $course->lecturers()->detach($lecturer->id);
-        app(ActivityLogger::class)->record('lecturer.unassigned_from_course', $course, ['lecturer_id' => $lecturer->id]);
+        $this->courseService->unassignLecturer($course, $lecturer);
 
         return back()->with('status', 'Lecturer removed from course.');
     }

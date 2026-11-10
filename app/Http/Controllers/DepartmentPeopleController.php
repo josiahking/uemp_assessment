@@ -6,8 +6,7 @@ use App\Models\AcademicLevel;
 use App\Models\AcademicProgram;
 use App\Models\Department;
 use App\Models\User;
-use App\Services\ActivityLogger;
-use App\Services\StudentNumberGenerator;
+use App\Services\DepartmentPeopleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,6 +14,8 @@ use Illuminate\View\View;
 
 class DepartmentPeopleController extends Controller
 {
+    public function __construct(private readonly DepartmentPeopleService $people) {}
+
     public function students(): View
     {
         $user = auth()->user();
@@ -52,8 +53,7 @@ class DepartmentPeopleController extends Controller
     public function updateStudent(Request $request, User $student): RedirectResponse
     {
         $student = $this->usersForRole('Student')->findOrFail($student->id);
-        $student->update($this->validateUserProfile($request, $student->department_id));
-        app(ActivityLogger::class)->record('student.updated', $student, ['account_status' => $student->account_status]);
+        $this->people->updateStudent($student, $this->validateUserProfile($request, $student->department_id));
 
         return back()->with('status', 'Student profile updated.');
     }
@@ -82,8 +82,7 @@ class DepartmentPeopleController extends Controller
             'faculty' => ['nullable', 'string', 'max:255'],
             'account_status' => ['required', Rule::in(['active', 'deactivated', 'suspended'])],
         ]);
-        $lecturer->update($data);
-        app(ActivityLogger::class)->record('lecturer.updated', $lecturer, ['account_status' => $lecturer->account_status]);
+        $this->people->updateLecturer($lecturer, $data);
 
         return back()->with('status', 'Lecturer profile updated.');
     }
@@ -100,52 +99,27 @@ class DepartmentPeopleController extends Controller
             'department_id' => [$isSuperAdmin ? 'required' : 'prohibited', 'integer', 'exists:departments,id'],
             'faculty' => ['nullable', 'string', 'max:255'],
         ];
-
         if ($role === 'Student') {
             $rules += [
                 'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
                 'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
             ];
         }
-
         $data = $request->validate($rules);
-        abort_if(! $departmentId, 422, 'Select a department for this account.');
-
-        if ($role === 'Student') {
-            $program = AcademicProgram::findOrFail($data['academic_program_id']);
-            if (! $program->levels()->whereKey($data['academic_level_id'])->exists()) {
-                return back()->withErrors(['academic_level_id' => 'The selected level is not offered by this program.'])->withInput();
-            }
-            $data['program'] = $program->name;
-            $data['academic_level'] = AcademicLevel::findOrFail($data['academic_level_id'])->name;
-            $data['student_number'] = app(StudentNumberGenerator::class)->next();
-        }
-        $data['account_status'] = 'active';
-
-        $account = User::create([...$data, 'department_id' => $departmentId]);
-        $account->assignRole($role);
-        app(ActivityLogger::class)->record(strtolower($role).'.created', $account, ['department_id' => $departmentId]);
+        $this->people->createAccount($data, $user, $role);
 
         return back()->with('status', $role.' account created.');
     }
 
     private function validateUserProfile(Request $request, int $departmentId): array
     {
-        $data = $request->validate([
+        return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($request->route('student')?->id)],
             'account_status' => ['required', Rule::in(['active', 'deactivated', 'suspended'])],
             'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
             'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
         ]);
-        $program = AcademicProgram::where('department_id', $departmentId)->findOrFail($data['academic_program_id']);
-        if (! $program->levels()->whereKey($data['academic_level_id'])->exists()) {
-            return back()->withErrors(['academic_level_id' => 'The selected level is not offered by this program.'])->throwResponse();
-        }
-        $data['program'] = $program->name;
-        $data['academic_level'] = AcademicLevel::where('department_id', $departmentId)->findOrFail($data['academic_level_id'])->name;
-
-        return $data;
     }
 
     private function usersForRole(string $role)

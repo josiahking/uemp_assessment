@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AcademicLevel;
 use App\Models\AcademicProgram;
 use App\Models\Department;
-use App\Services\ActivityLogger;
+use App\Services\DepartmentAcademicService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,6 +13,8 @@ use Illuminate\View\View;
 
 class DepartmentAcademicController extends Controller
 {
+    public function __construct(private readonly DepartmentAcademicService $departmentAcademic) {}
+
     public function academics(): View
     {
         $user = auth()->user();
@@ -39,8 +41,7 @@ class DepartmentAcademicController extends Controller
             'sort_order' => ['required', 'integer', 'min:0', 'max:1000'],
         ]);
         $departmentId = $isSuperAdmin ? $data['department_id'] : $user->department_id;
-        $level = AcademicLevel::create([...$data, 'department_id' => $departmentId, 'active' => true]);
-        app(ActivityLogger::class)->record('academic_level.created', $level, ['department_id' => $departmentId]);
+        $this->departmentAcademic->createLevel($data, (int) $departmentId);
 
         return back()->with('status', 'Academic level created.');
     }
@@ -53,8 +54,7 @@ class DepartmentAcademicController extends Controller
             'sort_order' => ['required', 'integer', 'min:0', 'max:1000'],
             'active' => ['required', 'boolean'],
         ]);
-        $level->update($data);
-        app(ActivityLogger::class)->record('academic_level.updated', $level, $data);
+        $this->departmentAcademic->updateLevel($level, $data);
 
         return back()->with('status', 'Academic level updated.');
     }
@@ -71,14 +71,7 @@ class DepartmentAcademicController extends Controller
             'academic_level_ids' => ['sometimes', 'array'],
             'academic_level_ids.*' => ['integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
         ]);
-        $program = AcademicProgram::create([
-            'department_id' => $departmentId,
-            'name' => $data['name'],
-            'code' => $data['code'],
-            'active' => true,
-        ]);
-        $program->levels()->sync($data['academic_level_ids'] ?? []);
-        app(ActivityLogger::class)->record('program.created', $program, ['level_ids' => $data['academic_level_ids'] ?? []]);
+        $this->departmentAcademic->createProgram($data, (int) $departmentId);
 
         return back()->with('status', 'Academic program created.');
     }
@@ -93,9 +86,7 @@ class DepartmentAcademicController extends Controller
             'academic_level_ids' => ['sometimes', 'array'],
             'academic_level_ids.*' => ['integer', Rule::exists('academic_levels', 'id')->where('department_id', $program->department_id)],
         ]);
-        $program->update(collect($data)->except('academic_level_ids')->all());
-        $program->levels()->sync($data['academic_level_ids'] ?? []);
-        app(ActivityLogger::class)->record('program.updated', $program, ['level_ids' => $data['academic_level_ids'] ?? []]);
+        $this->departmentAcademic->updateProgram($program, $data);
 
         return back()->with('status', 'Academic program updated.');
     }

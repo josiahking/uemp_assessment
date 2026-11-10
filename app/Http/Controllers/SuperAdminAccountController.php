@@ -6,8 +6,7 @@ use App\Models\AcademicLevel;
 use App\Models\AcademicProgram;
 use App\Models\Department;
 use App\Models\User;
-use App\Services\ActivityLogger;
-use App\Services\StudentNumberGenerator;
+use App\Services\SuperAdminAccountService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,6 +15,8 @@ use Spatie\Permission\Models\Role;
 
 class SuperAdminAccountController extends Controller
 {
+    public function __construct(private readonly SuperAdminAccountService $accountService) {}
+
     public function accounts(Request $request): View
     {
         $rawSearch = $request->query('q', '');
@@ -73,26 +74,7 @@ class SuperAdminAccountController extends Controller
                 'academic_level_id' => ['required', 'integer', 'exists:academic_levels,id'],
             ];
         }
-        $data = $request->validate($rules);
-
-        abort_if($data['role'] !== 'Super Admin' && empty($data['department_id']), 422, 'A department is required for this role.');
-
-        if ($data['role'] === 'Student') {
-            $program = AcademicProgram::where('department_id', $data['department_id'])->findOrFail($data['academic_program_id']);
-            $level = AcademicLevel::where('department_id', $data['department_id'])->findOrFail($data['academic_level_id']);
-            abort_if(! $program->levels()->whereKey($level->id)->exists(), 422, 'The selected level is not offered by this program.');
-            $data['program'] = $program->name;
-            $data['academic_level'] = $level->name;
-            $data['student_number'] = app(StudentNumberGenerator::class)->next();
-        }
-
-        $account = User::create([
-            ...$data,
-            'department_id' => $data['role'] === 'Super Admin' ? null : $data['department_id'],
-            'account_status' => 'active',
-        ]);
-        $account->assignRole($data['role']);
-        app(ActivityLogger::class)->record('account.created', $account, ['role' => $data['role'], 'department_id' => $account->department_id]);
+        $this->accountService->create($request->validate($rules));
 
         return back()->with('status', 'Account created.');
     }
@@ -112,39 +94,7 @@ class SuperAdminAccountController extends Controller
                 'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
             ];
         }
-        $data = $request->validate($rules);
-
-        abort_if($user->is($request->user()) && ($data['role'] !== 'Super Admin' || $data['account_status'] !== 'active'), 422, 'You cannot remove your own active Super Admin access.');
-        abort_if($data['role'] !== 'Super Admin' && ! $data['department_id'], 422, 'A department is required for this role.');
-
-        $studentFields = [];
-        if ($data['role'] === 'Student') {
-            $program = AcademicProgram::where('department_id', $data['department_id'])->findOrFail($data['academic_program_id']);
-            $level = AcademicLevel::where('department_id', $data['department_id'])->findOrFail($data['academic_level_id']);
-            abort_if(! $program->levels()->whereKey($level->id)->exists(), 422, 'The selected level is not offered by this program.');
-            $studentFields = [
-                'student_number' => $user->student_number ?? app(StudentNumberGenerator::class)->next(),
-                'academic_program_id' => $program->id,
-                'academic_level_id' => $level->id,
-                'program' => $program->name,
-                'academic_level' => $level->name,
-            ];
-        }
-
-        $before = [
-            'role' => $user->getRoleNames()->first(),
-            'account_status' => $user->account_status,
-            'department_id' => $user->department_id,
-            'academic_program_id' => $user->academic_program_id,
-            'academic_level_id' => $user->academic_level_id,
-        ];
-        $user->update([
-            'account_status' => $data['account_status'],
-            'department_id' => $data['role'] === 'Super Admin' ? null : $data['department_id'],
-            ...$studentFields,
-        ]);
-        $user->syncRoles($data['role']);
-        app(ActivityLogger::class)->record('account.access_updated', $user, ['before' => $before, 'after' => $data]);
+        $this->accountService->update($user, $request->user(), $request->validate($rules));
 
         return back()->with('status', 'Account access updated.');
     }
