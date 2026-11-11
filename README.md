@@ -15,6 +15,10 @@ Assessment project for Lead Web Praxis Media Limited.
 
 UEMP is a role-based university administration portal. This MVP prioritizes the Department Admin workflow while providing the supporting accounts and controls needed to exercise it end to end.
 
+## Demo
+
+[Watch the UEMP demo](https://youtu.be/seueugivdvY).
+
 ## Scope
 
 ### Department Admin
