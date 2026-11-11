@@ -137,6 +137,12 @@ td small { display: block; max-width: 230px; margin-top: 3px; color: #87918a; fo
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .form-grid label { display: grid; gap: 6px; color: #58675e; font-size: 10px; font-weight: 700; }
 .form-grid input, .form-grid select { width: 100%; }
+.password-field { position: relative; }
+.password-field input { padding-right: 42px; }
+.password-toggle { position: absolute; top: 50%; right: 7px; display: grid; width: 30px; height: 30px; place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: 4px; color: #65736b; background: transparent; cursor: pointer; }
+.password-toggle:hover { color: var(--ink); background: #f2f5f1; }
+.password-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.password-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .stacked-form { display: grid; gap: 12px; }
 .stacked-form label { display: grid; gap: 6px; color: #58675e; font-size: 10px; font-weight: 700; }
 .form-actions { display: flex; align-items: end; }

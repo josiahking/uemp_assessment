@@ -58,22 +58,19 @@ class AcademicAdministrationTest extends TestCase
     {
         $this->withoutVite()->seed();
         $superAdmin = User::where('email', 'superadmin@uemp.test')->firstOrFail();
-        $student = User::where('email', 'student@uemp.test')->firstOrFail();
+        $lecturer = User::where('email', 'lecturer@uemp.test')->firstOrFail();
 
         $this->actingAs($superAdmin)->get('/super-admin/accounts')->assertOk();
-        $this->patch('/super-admin/accounts/'.$student->id, [
-            'role' => 'Student',
+        $this->patch('/super-admin/accounts/'.$lecturer->id, [
+            'role' => 'Lecturer',
             'account_status' => 'suspended',
-            'department_id' => $student->department_id,
-            'student_number' => $student->student_number,
-            'academic_program_id' => $student->academic_program_id,
-            'academic_level_id' => $student->academic_level_id,
+            'department_id' => $lecturer->department_id,
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('users', ['id' => $student->id, 'account_status' => 'suspended']);
+        $this->assertDatabaseHas('users', ['id' => $lecturer->id, 'account_status' => 'suspended']);
         Auth::logout();
 
-        $this->post('/login', ['email' => $student->email, 'password' => 'password'])
+        $this->post('/login', ['email' => $lecturer->email, 'password' => 'password'])
             ->assertSessionHasErrors('email');
 
         $this->assertGuest();

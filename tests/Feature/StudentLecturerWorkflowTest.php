@@ -175,6 +175,11 @@ class StudentLecturerWorkflowTest extends TestCase
             'subject_id' => $resultId,
         ]);
 
+        $this->post("/lecturer/registrations/{$registration->id}/result", [
+            'ca_score' => 30,
+            'exam_score' => 50,
+        ])->assertStatus(409);
+
         $this->assertSame(1, Result::where('course_registration_id', $registration->id)->count());
     }
 
