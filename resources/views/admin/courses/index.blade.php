@@ -5,7 +5,48 @@
     <div class="page-heading"><div><p class="eyebrow">Academic setup</p><h1>Courses</h1><p class="muted">Create courses and assign lecturers in your department.</p></div></div>
     <section class="data-section"><div class="table-toolbar"><div><h2>Course catalogue</h2><p>{{ $courses->count() }} courses</p></div></div>
         <div class="table-wrap"><table><thead><tr><th>Course</th><th>Credits</th><th>Department</th><th>Lecturers</th><th>Course settings</th></tr></thead><tbody>
-            @forelse ($courses as $course)<tr><td><strong>{{ $course->code }}</strong><small>{{ $course->title }}</small></td><td>{{ $course->credit_units }}</td><td>{{ $course->department->name }}</td><td>{{ $course->lecturers->pluck('name')->join(', ') ?: 'Unassigned' }}@foreach ($course->lecturers as $lecturer)<form method="POST" action="{{ route('admin.courses.unassign-lecturer', [$course, $lecturer]) }}">@csrf @method('DELETE')<button class="text-button" type="submit">Remove {{ $lecturer->name }}</button></form>@endforeach</td><td><form class="stacked-inline-form" method="POST" action="{{ route('admin.courses.update', $course) }}">@csrf @method('PATCH')<input name="code" aria-label="Course code" value="{{ $course->code }}" required><input name="title" aria-label="Course title" value="{{ $course->title }}" required><input name="credit_units" type="number" min="1" max="10" aria-label="Credit units" value="{{ $course->credit_units }}" required><select name="active"><option value="1" @selected($course->active)>Active</option><option value="0" @selected(!$course->active)>Inactive</option></select><button class="button button-small" type="submit">Save</button></form><form class="inline-form" method="POST" action="{{ route('admin.courses.assign-lecturer', $course) }}">@csrf<select name="lecturer_id" aria-label="Select lecturer for {{ $course->code }}" required><option value="">Assign lecturer</option>@foreach ($lecturers->where('department_id', $course->department_id) as $lecturer)<option value="{{ $lecturer->id }}">{{ $lecturer->name }}</option>@endforeach</select><button class="button button-small" type="submit">Assign</button></form></td></tr>@empty<tr><td class="empty-state" colspan="5">No courses have been created yet.</td></tr>@endforelse
+            @forelse ($courses as $course)
+                <tr>
+                    <td><strong>{{ $course->code }}</strong><small>{{ $course->title }}</small></td>
+                    <td>{{ $course->credit_units }}</td>
+                    <td>{{ $course->department->name }}</td>
+                    <td>
+                        {{ $course->lecturers->pluck('name')->join(', ') ?: 'Unassigned' }}
+                        @foreach ($course->lecturers as $lecturer)
+                            <form method="POST" action="{{ route('admin.courses.unassign-lecturer', [$course, $lecturer]) }}">
+                                @csrf @method('DELETE')
+                                <button class="text-button" type="submit">Remove {{ $lecturer->name }}</button>
+                            </form>
+                        @endforeach
+                    </td>
+                    <td>
+                        <details>
+                            <summary>Course settings</summary>
+                            <form class="stacked-inline-form" method="POST" action="{{ route('admin.courses.update', $course) }}">
+                                @csrf @method('PATCH')
+                                <input name="code" aria-label="Course code" value="{{ $course->code }}" required>
+                                <input name="title" aria-label="Course title" value="{{ $course->title }}" required>
+                                <input name="credit_units" type="number" min="1" max="10" aria-label="Credit units" value="{{ $course->credit_units }}" required>
+                                <select name="active" aria-label="Course status">
+                                    <option value="1" @selected($course->active)>Active</option>
+                                    <option value="0" @selected(! $course->active)>Inactive</option>
+                                </select>
+                                <button class="button button-small" type="submit">Save</button>
+                            </form>
+                            <form class="inline-form" method="POST" action="{{ route('admin.courses.assign-lecturer', $course) }}">
+                                @csrf
+                                <select name="lecturer_id" aria-label="Select lecturer for {{ $course->code }}" required>
+                                    <option value="">Assign lecturer</option>
+                                    @foreach ($lecturers->where('department_id', $course->department_id) as $lecturer)<option value="{{ $lecturer->id }}">{{ $lecturer->name }}</option>@endforeach
+                                </select>
+                                <button class="button button-small" type="submit">Assign</button>
+                            </form>
+                        </details>
+                    </td>
+                </tr>
+            @empty
+                <tr><td class="empty-state" colspan="5">No courses have been created yet.</td></tr>
+            @endforelse
         </tbody></table></div>
     </section>
     <section class="data-section"><div class="table-toolbar"><div><h2>Course offerings</h2><p>{{ $offerings->count() }} program / level allocations</p></div></div>

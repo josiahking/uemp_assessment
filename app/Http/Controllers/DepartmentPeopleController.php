@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AcademicLevel;
 use App\Models\AcademicProgram;
 use App\Models\Department;
+use App\Models\Faculty;
 use App\Models\User;
 use App\Services\DepartmentPeopleService;
 use Illuminate\Http\RedirectResponse;
@@ -61,10 +62,16 @@ class DepartmentPeopleController extends Controller
     public function lecturers(): View
     {
         $user = auth()->user();
+        $faculties = Faculty::where('active', true)
+            ->when(! $user->hasRole('Super Admin'), fn ($query) => $query->whereHas(
+                'departments', fn ($departments) => $departments->whereKey($user->department_id),
+            ))
+            ->orderBy('name')->get();
 
         return view('admin.lecturers.index', [
             'lecturers' => $this->usersForRole('Lecturer')->with('department')->orderBy('name')->get(),
             'departments' => $user->hasRole('Super Admin') ? Department::orderBy('name')->get() : collect(),
+            'faculties' => $faculties,
         ]);
     }
 

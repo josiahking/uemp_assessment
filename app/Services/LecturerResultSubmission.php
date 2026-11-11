@@ -45,4 +45,11 @@ class LecturerResultSubmission
             return $result;
         });
     }
+
+    private function assertSubmittable(CourseRegistration $registration): void
+    {
+        $result = $registration->result;
+
+        abort_if($result && ! in_array($result->status, ['draft', 'returned'], true), 409);
+    }
 }

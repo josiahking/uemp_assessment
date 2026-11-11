@@ -53,7 +53,10 @@ class DepartmentWorkflowTest extends TestCase
             'subject_id' => $registration->id,
         ]);
 
-        $this->patch("/admin/registrations/{$registration->id}", ['status' => 'rejected'])
+        $this->patch("/admin/registrations/{$registration->id}", [
+            'status' => 'rejected',
+            'rejection_reason' => 'Registration was already confirmed.',
+        ])
             ->assertStatus(409);
     }
 

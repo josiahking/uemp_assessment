@@ -11,7 +11,7 @@ class CourseRegistration extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['student_id', 'course_id', 'course_offering_id', 'academic_year', 'semester', 'status'];
+    protected $fillable = ['student_id', 'course_id', 'course_offering_id', 'academic_year', 'semester', 'status', 'rejection_reason'];
 
     public function student(): BelongsTo
     {

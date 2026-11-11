@@ -55,8 +55,11 @@ class DepartmentReviewController extends Controller
     public function updateRegistration(Request $request, CourseRegistration $registration): RedirectResponse
     {
         $registration = $this->registrationsForDepartment()->findOrFail($registration->id);
-        $data = $request->validate(['status' => ['required', Rule::in(['confirmed', 'rejected'])]]);
-        $this->reviewService->decideRegistration($registration, $data['status']);
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['confirmed', 'rejected'])],
+            'rejection_reason' => ['required_if:status,rejected', 'nullable', 'string', 'max:2000'],
+        ]);
+        $this->reviewService->decideRegistration($registration, $data['status'], $data['rejection_reason'] ?? null);
 
         return back()->with('status', 'Registration '.$data['status'].'.');
     }

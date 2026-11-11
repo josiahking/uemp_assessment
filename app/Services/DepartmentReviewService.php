@@ -12,12 +12,18 @@ class DepartmentReviewService
 {
     public function __construct(private readonly ActivityLogger $activityLogger) {}
 
-    public function decideRegistration(CourseRegistration $registration, string $status): void
+    public function decideRegistration(CourseRegistration $registration, string $status, ?string $rejectionReason = null): void
     {
         abort_unless($registration->status === 'pending', 409);
-        DB::transaction(function () use ($registration, $status) {
-            $registration->update(['status' => $status]);
-            $this->activityLogger->record('course_registration.'.$status, $registration);
+        abort_if($status === 'rejected' && blank($rejectionReason), 422, 'A rejection reason is required.');
+        DB::transaction(function () use ($registration, $status, $rejectionReason) {
+            $registration->update([
+                'status' => $status,
+                'rejection_reason' => $status === 'rejected' ? $rejectionReason : null,
+            ]);
+            $this->activityLogger->record('course_registration.'.$status, $registration, $status === 'rejected'
+                ? ['rejection_reason' => $rejectionReason]
+                : []);
         });
     }
 

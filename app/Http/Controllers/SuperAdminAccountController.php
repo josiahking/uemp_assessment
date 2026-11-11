@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AcademicLevel;
-use App\Models\AcademicProgram;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\SuperAdminAccountService;
@@ -29,16 +27,20 @@ class SuperAdminAccountController extends Controller
             'account_status' => is_string($rawStatus) ? $rawStatus : '',
             'department_id' => is_string($rawDepartmentId) ? $rawDepartmentId : '',
         ];
-        $query = User::with(['department', 'academicProgram', 'academicLevel', 'roles']);
+        $query = User::whereDoesntHave('roles', fn ($roles) => $roles
+            ->where('name', 'Student')
+            ->where('guard_name', 'web'))
+            ->with(['department', 'roles']);
 
         if ($filters['q'] !== '') {
             $search = mb_strtolower($filters['q']);
             $query->where(fn ($users) => $users
                 ->whereRaw('LOWER(name) LIKE ?', ['%'.$search.'%'])
-                ->orWhereRaw('LOWER(email) LIKE ?', ['%'.$search.'%'])
-                ->orWhereRaw('LOWER(student_number) LIKE ?', ['%'.$search.'%']));
+                ->orWhereRaw('LOWER(email) LIKE ?', ['%'.$search.'%']));
         }
-        if (is_string($filters['role']) && Role::where('guard_name', 'web')->where('name', $filters['role'])->exists()) {
+        if ($filters['role'] === 'Student') {
+            $query->whereRaw('1 = 0');
+        } elseif ($filters['role'] !== '' && Role::where('guard_name', 'web')->where('name', $filters['role'])->exists()) {
             $query->role($filters['role']);
         }
         if (in_array($filters['account_status'], ['active', 'deactivated', 'suspended'], true)) {
@@ -51,29 +53,26 @@ class SuperAdminAccountController extends Controller
         return view('super-admin.accounts', [
             'users' => $query->orderBy('name')->paginate(20)->withQueryString(),
             'departments' => Department::orderBy('name')->get(),
-            'programs' => AcademicProgram::where('active', true)->orderBy('name')->get(),
-            'levels' => AcademicLevel::where('active', true)->orderBy('sort_order')->get(),
-            'roles' => Role::where('guard_name', 'web')->orderBy('name')->get(),
+            'roles' => Role::where('guard_name', 'web')->where('name', '!=', 'Student')->orderBy('name')->get(),
             'filters' => $filters,
         ]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
     {
-        $role = $request->input('role');
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
+            'role' => [
+                'required',
+                'string',
+                Rule::exists('roles', 'name')->where(fn ($query) => $query
+                    ->where('guard_name', 'web')
+                    ->where('name', '!=', 'Student')),
+            ],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ];
-        if ($role === 'Student') {
-            $rules += [
-                'academic_program_id' => ['required', 'integer', 'exists:academic_programs,id'],
-                'academic_level_id' => ['required', 'integer', 'exists:academic_levels,id'],
-            ];
-        }
         $this->accountService->create($request->validate($rules));
 
         return back()->with('status', 'Account created.');
@@ -81,19 +80,21 @@ class SuperAdminAccountController extends Controller
 
     public function updateAccount(Request $request, User $user): RedirectResponse
     {
-        $role = $request->input('role');
-        $departmentId = $request->input('department_id');
+        $user = User::whereDoesntHave('roles', fn ($roles) => $roles
+            ->where('name', 'Student')
+            ->where('guard_name', 'web'))
+            ->findOrFail($user->id);
         $rules = [
-            'role' => ['required', 'string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
+            'role' => [
+                'required',
+                'string',
+                Rule::exists('roles', 'name')->where(fn ($query) => $query
+                    ->where('guard_name', 'web')
+                    ->where('name', '!=', 'Student')),
+            ],
             'account_status' => ['required', Rule::in(['active', 'deactivated', 'suspended'])],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ];
-        if ($role === 'Student') {
-            $rules += [
-                'academic_program_id' => ['required', 'integer', Rule::exists('academic_programs', 'id')->where('department_id', $departmentId)],
-                'academic_level_id' => ['required', 'integer', Rule::exists('academic_levels', 'id')->where('department_id', $departmentId)],
-            ];
-        }
         $this->accountService->update($user, $request->user(), $request->validate($rules));
 
         return back()->with('status', 'Account access updated.');

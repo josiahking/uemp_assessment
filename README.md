@@ -111,7 +111,7 @@ The Compose stack runs PHP 8.4, PostgreSQL 18, a queue worker, and the Vite deve
    Copy-Item .env.example .env
    ```
 
-   For local Docker use, Compose supplies the database connection settings and uses `uemp-local` as the PostgreSQL password by default. You can set `POSTGRES_PASSWORD` in `.env` to choose another local password.
+   For local Docker use, Compose reads `DB_CONNECTION` from `.env` (defaulting to PostgreSQL) and supplies the container-specific settings: `DB_HOST=db`, port `5432`, and database/user `uemp`. These override host-oriented values such as `DB_HOST=127.0.0.1` from `.env.example`. The PostgreSQL password defaults to `uemp-local`; set `POSTGRES_PASSWORD` in `.env` to change it. Database-backed sessions use the same PostgreSQL connection.
 
 2. Start PostgreSQL, generate the app key, and initialize the development database:
 
@@ -128,6 +128,14 @@ The Compose stack runs PHP 8.4, PostgreSQL 18, a queue worker, and the Vite deve
    ```
 
    Open <http://localhost:8000>. Vite is available on port 5173, and PostgreSQL is exposed to host tools on port 5433.
+
+   Compose reads environment values when it creates a container. The app runs Laravel's development server with `--no-reload` so Compose-provided database settings are forwarded to the HTTP worker. After changing `.env` or the Compose environment, recreate the app containers so they receive the new values; `docker compose restart` only restarts containers with their existing environment:
+
+   ```sh
+   docker compose up -d --force-recreate app worker
+   ```
+
+   Inside Docker, `localhost` refers to the app container itself. Use `DB_HOST=db` for the app; use `127.0.0.1:5433` only for database tools running on the host.
 
 View logs and stop the stack with:
 
