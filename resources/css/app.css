@@ -147,6 +147,12 @@ td small { display: block; max-width: 230px; margin-top: 3px; color: #87918a; fo
 .stacked-form label { display: grid; gap: 6px; color: #58675e; font-size: 10px; font-weight: 700; }
 .form-actions { display: flex; align-items: end; }
 .inline-form, .decision-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.registration-decisions { display: grid; justify-items: start; gap: 7px; }
+.registration-rejection > summary { cursor: pointer; }
+.registration-rejection-form { display: grid; width: min(240px, 55vw); gap: 6px; margin-top: 8px; }
+.registration-rejection-form label { color: #58675e; font-size: 10px; font-weight: 700; }
+.registration-rejection-form textarea { width: 100%; }
+.decision-reason { max-width: 230px; color: #8a3428 !important; white-space: normal; }
 .inline-form input, .inline-form select, .decision-form select { min-height: 30px; max-width: 130px; padding: 0 7px; font-size: 10px; }
 .review-form { display: grid; width: 175px; gap: 5px; margin-top: 7px; }
 .review-form select { min-height: 29px; padding: 0 7px; font-size: 10px; }
