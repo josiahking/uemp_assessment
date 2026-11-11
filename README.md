@@ -58,6 +58,144 @@ flowchart LR
 
 The academic data model is relational: a Faculty contains Departments; Departments own Programs and Academic Levels; Programs define their available Levels; Academic Sessions contain Semesters; Courses are allocated through Course Offerings to a Semester and optionally a Program/Level. Students link to a Department, Program, and Level. Registrations reference both the Course and the selected Offering.
 
+### Database schema (ER diagram)
+
+The diagram shows the main academic, account, workflow, and audit tables. `users` stores students, lecturers, and administrators; their role assignments distinguish the account types. Optional foreign keys are nullable in the schema.
+
+```mermaid
+erDiagram
+    FACULTIES o|--o{ DEPARTMENTS : contains
+    DEPARTMENTS o|--o{ USERS : associates
+    DEPARTMENTS ||--o{ ACADEMIC_PROGRAMS : offers
+    DEPARTMENTS ||--o{ ACADEMIC_LEVELS : defines
+    DEPARTMENTS ||--o{ COURSES : owns
+
+    ACADEMIC_PROGRAMS ||--o{ ACADEMIC_PROGRAM_LEVELS : includes
+    ACADEMIC_LEVELS ||--o{ ACADEMIC_PROGRAM_LEVELS : available_at
+
+    USERS ||--o{ COURSE_LECTURERS : assigned
+    COURSES ||--o{ COURSE_LECTURERS : taught_by
+
+    ACADEMIC_SESSIONS ||--o{ SEMESTERS : contains
+    SEMESTERS ||--o{ COURSE_OFFERINGS : schedules
+    COURSES ||--o{ COURSE_OFFERINGS : offered_as
+    ACADEMIC_PROGRAMS o|--o{ COURSE_OFFERINGS : targets
+    ACADEMIC_LEVELS o|--o{ COURSE_OFFERINGS : targets
+
+    USERS ||--o{ COURSE_REGISTRATIONS : registers
+    COURSES ||--o{ COURSE_REGISTRATIONS : requested_for
+    COURSE_OFFERINGS o|--o{ COURSE_REGISTRATIONS : selected_for
+    COURSE_REGISTRATIONS ||--o| RESULTS : receives
+    USERS o|--o{ RESULTS : submits_or_reviews
+    RESULTS o|--o{ RESULT_EVENTS : records
+    USERS o|--o{ RESULT_EVENTS : acts_on
+
+    USERS o|--o{ SYSTEM_ACTIVITIES : performs
+
+    USERS {
+        bigint id PK
+        bigint department_id FK
+        bigint academic_program_id FK
+        bigint academic_level_id FK
+        string student_number UK
+        string account_status
+    }
+    FACULTIES {
+        bigint id PK
+        string code UK
+        boolean active
+    }
+    DEPARTMENTS {
+        bigint id PK
+        bigint faculty_id FK
+        string code UK
+    }
+    ACADEMIC_PROGRAMS {
+        bigint id PK
+        bigint department_id FK
+        string code
+    }
+    ACADEMIC_LEVELS {
+        bigint id PK
+        bigint department_id FK
+        string name
+    }
+    ACADEMIC_PROGRAM_LEVELS {
+        bigint id PK
+        bigint academic_program_id FK
+        bigint academic_level_id FK
+    }
+    COURSES {
+        bigint id PK
+        bigint department_id FK
+        string code
+        unsignedSmallInteger credit_units
+        boolean active
+    }
+    COURSE_LECTURERS {
+        bigint id PK
+        bigint course_id FK
+        bigint lecturer_id FK
+    }
+    ACADEMIC_SESSIONS {
+        bigint id PK
+        string name UK
+        boolean active
+    }
+    SEMESTERS {
+        bigint id PK
+        bigint academic_session_id FK
+        string name
+        boolean active
+    }
+    COURSE_OFFERINGS {
+        bigint id PK
+        bigint course_id FK
+        bigint semester_id FK
+        bigint academic_program_id FK
+        bigint academic_level_id FK
+        boolean active
+    }
+    COURSE_REGISTRATIONS {
+        bigint id PK
+        bigint student_id FK
+        bigint course_id FK
+        bigint course_offering_id FK
+        string status
+        text rejection_reason
+    }
+    RESULTS {
+        bigint id PK
+        bigint course_registration_id FK "unique"
+        bigint submitted_by FK
+        bigint reviewed_by FK
+        decimal total_score
+        string grade
+        string status
+    }
+    RESULT_EVENTS {
+        bigint id PK
+        bigint result_id FK
+        bigint actor_id FK
+        string event
+        json metadata
+    }
+    SYSTEM_ACTIVITIES {
+        bigint id PK
+        bigint actor_id FK
+        string action
+        string subject_type
+        bigint subject_id
+        json details
+    }
+    STUDENT_NUMBER_SEQUENCES {
+        string key PK
+        bigint last_number
+    }
+```
+
+`COURSE_LECTURERS` and `ACADEMIC_PROGRAM_LEVELS` implement many-to-many assignments. Spatie Permission's role and permission tables are omitted from the diagram; user role links are polymorphic (`model_type`, `model_id`). `SYSTEM_ACTIVITIES.subject_type` and `subject_id` are also polymorphic rather than a foreign key. Student and lecturer accounts are records in `USERS`, with their role providing the account type.
+
 ## Engineering Decisions
 
 - Department Admin authorization is enforced at both route and query/write boundaries. Department-scoped model lookups return `404` for foreign records, avoiding accidental cross-department updates. The Super Admin role is the only role allowed on university setup and account-control routes.
