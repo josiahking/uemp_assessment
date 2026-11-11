@@ -108,6 +108,18 @@ h1, h2 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; }
 .filter-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
 .filter-toolbar input, .filter-toolbar select { min-width: 130px; }
 .pagination-wrap { padding: 14px 18px; border-top: 1px solid var(--line); }
+.portal-pagination-layout { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.portal-pagination-summary { margin: 0; color: #526159; font-size: 12px; }
+.portal-pagination-summary strong { color: var(--ink); font-weight: 600; }
+.portal-pagination ul { display: flex; align-items: stretch; margin: 0; padding: 0; list-style: none; }
+.portal-pagination li + li { margin-left: -1px; }
+.portal-pagination a, .portal-pagination li > span { display: grid; min-width: 39px; min-height: 38px; place-items: center; padding: 0 11px; border: 1px solid #dce4dd; color: var(--green); background: white; font-size: 12px; }
+.portal-pagination li:first-child > :is(a, span) { border-radius: 5px 0 0 5px; }
+.portal-pagination li:last-child > :is(a, span) { border-radius: 0 5px 5px 0; }
+.portal-pagination a:hover { z-index: 1; border-color: var(--green); color: var(--ink); background: var(--green-light); }
+.portal-pagination li > .is-current { z-index: 2; border-color: var(--green); color: white; background: var(--green); }
+.portal-pagination li > .is-disabled { color: #9ba69e; background: #f7f9f6; }
+.portal-pagination a:focus-visible { z-index: 3; outline: 2px solid var(--gold); outline-offset: -2px; }
 input, select, textarea { min-width: 0; border: 1px solid #dfe5df; border-radius: 4px; color: #263b32; background: white; }
 input[readonly] { color: #66746b; background: #f3f5f2; cursor: not-allowed; }
 input, select { min-height: 36px; padding: 0 10px; }
@@ -138,11 +150,13 @@ td small { display: block; max-width: 230px; margin-top: 3px; color: #87918a; fo
 .form-grid label { display: grid; gap: 6px; color: #58675e; font-size: 10px; font-weight: 700; }
 .form-grid input, .form-grid select { width: 100%; }
 .password-field { position: relative; }
-.password-field input { padding-right: 42px; }
-.password-toggle { position: absolute; top: 50%; right: 7px; display: grid; width: 30px; height: 30px; place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: 4px; color: #65736b; background: transparent; cursor: pointer; }
-.password-toggle:hover { color: var(--ink); background: #f2f5f1; }
-.password-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
-.password-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.password-field input { width: 100%; padding-right: 144px; }
+.password-actions { position: absolute; top: 50%; right: 5px; display: flex; align-items: center; gap: 1px; transform: translateY(-50%); }
+.password-action, .password-generate { display: inline-flex; min-width: 29px; height: 29px; align-items: center; justify-content: center; padding: 0 5px; border: 0; border-radius: 4px; color: #58675e; background: transparent; cursor: pointer; }
+.password-generate { color: var(--green); font-size: 10px; font-weight: 700; }
+.password-action:hover, .password-generate:hover { color: var(--ink); background: var(--green-light); }
+.password-action:focus-visible, .password-generate:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.password-action svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .stacked-form { display: grid; gap: 12px; }
 .stacked-form label { display: grid; gap: 6px; color: #58675e; font-size: 10px; font-weight: 700; }
 .form-actions { display: flex; align-items: end; }
@@ -214,6 +228,8 @@ td small { display: block; max-width: 230px; margin-top: 3px; color: #87918a; fo
     .metric strong { font-size: 29px; }
     .form-grid { grid-template-columns: 1fr; }
     .table-toolbar { align-items: flex-start; flex-direction: column; }
+    .portal-pagination-layout { align-items: flex-start; flex-direction: column; }
+    .portal-pagination { align-self: flex-end; max-width: 100%; overflow-x: auto; }
     .search-input { width: 100%; }
     .table-wrap table { min-width: 620px; }
     .form-section { padding: 16px; }
