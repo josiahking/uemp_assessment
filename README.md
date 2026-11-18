@@ -1,358 +1,41 @@
 # University Education Management Portal (UEMP)
 
-Assessment project for Lead Web Praxis Media Limited.
+**A role-based university administration MVP built with Laravel, focused on department-level data isolation, academic workflows, auditable decisions, and test-driven development.**
 
-| | |
+UEMP demonstrates how to design and implement a multi-role academic administration system with clear authorization boundaries. The primary workflow is **Department Admin**; supporting Super Admin, Lecturer, and Student roles make it possible to exercise registration, teaching, results, and approval processes end to end.
+
+**[Watch the application demo](https://youtu.be/seueugivdvY)** · [Architecture](#architecture) · [Engineering decisions](#engineering-decisions) · [Run with Docker](#docker-setup) · [Testing](#testing)
+
+> **Project scope:** This is a technical-assessment MVP, not a production university deployment. The repository includes development seed data, automated tests, and setup instructions. Reporting is currently in-portal rather than exported to files.
+
+## Engineering highlights
+
+- **Role-based access and department isolation:** Uses roles and permissions, plus department-scoped record lookups and mutation boundaries, to prevent administrators from accessing another department's records.
+- **Academic eligibility rules:** Validates course registration against active offerings, sessions, semesters, programs, and levels on the server rather than trusting client-supplied academic context.
+- **Auditable result approvals:** Supports lecturer result submission and Department Admin approval, rejection, or return for correction, with result events and administrative activity records.
+- **Clear application boundaries:** Keeps HTTP validation and authorization in controllers while workflow services coordinate business operations, transactions, and activity logging.
+- **Test-driven verification:** Includes feature and unit tests for authorization, academic workflows, grading, registration, and results, with isolated SQLite and PostgreSQL testing options.
+- **Reproducible development:** Documents Docker Compose setup, seeded demonstration accounts, local setup, and testing commands.
+
+## What the application supports
+
+| Role | Main capabilities |
 | --- | --- |
-| Position | Technology & Engineering Manager |
-| Selected workflow | Administrator, with a Department Admin focus |
-| Framework | Laravel 13.x |
-| Runtime | PHP 8.4 |
-| Database | PostgreSQL |
-| Development approach | Test-driven development (TDD) |
+| **Department Admin** | Manage department students, lecturers, courses and allocations; review registrations and results; view departmental reports. |
+| **Super Admin** | Configure academic structures, sessions, accounts, roles and permissions; monitor university-wide administrative activity. |
+| **Lecturer** | Submit and correct results for assigned courses. |
+| **Student** | Register for eligible active course offerings. |
 
-## Overview
+## Key workflows
 
-UEMP is a role-based university administration portal. This MVP prioritizes the Department Admin workflow while providing the supporting accounts and controls needed to exercise it end to end.
+1. A Super Admin configures faculties, departments, programs, academic levels, sessions, semesters, and access permissions.
+2. Department Admins manage departmental accounts, courses, lecturer allocations, and course offerings.
+3. Students register for eligible offerings; administrators review registration requests.
+4. Lecturers submit results; Department Admins approve, reject, or return results for correction.
+5. Department and university administrators review reports and recorded activity within their authorized scope.
 
-## Demo
+## Technology
 
-[Watch the UEMP demo](https://youtu.be/seueugivdvY).
+**PHP 8.4 · Laravel 13 · PostgreSQL · Blade · Tailwind CSS · Spatie Laravel Permission · Pest · Docker Compose**
 
-## Scope
-
-### Department Admin
-
-- Department Admin role and dashboard
-- Student and lecturer management, limited to the administrator's department
-- Lecturer course assignments and departmental course management
-- Student course-registration review and confirmation
-- Submitted-result review, approval, rejection, and return for correction
-- Department-level academic and registration reports
-- Role-based access control (RBAC) and department data isolation
-
-### Supporting roles
-
-- Super Admin (for initial setup)
-- Student and Lecturer accounts for exercising the admin workflows
-
-## Core workflows
-
-1. Department administrators manage students, lecturers, and courses in their department.
-2. Super Admins configure faculties, departments, programs, levels, academic sessions, semesters, accounts, roles, and permissions.
-3. Department administrators allocate courses to active semesters and eligible programs/levels.
-4. Students register for active offerings that match their department, program, level, session, and semester.
-5. Administrators review registrations; lecturers submit results; Department Admins approve, reject, or return them for correction.
-6. Administrators review departmental reports, while Super Admins monitor university-wide totals and administrative activity.
-
-## Architecture
-
-UEMP is a server-rendered Laravel application. Controllers validate requests and enforce workflow rules; Eloquent models express the academic relationships; Blade and Tailwind render role-specific interfaces. PostgreSQL is the intended runtime database, and Spatie Laravel Permission stores roles and permissions.
-
-```mermaid
-flowchart LR
-	Browser[Browser / Blade UI] --> Routes[Authenticated web routes]
-	Routes --> Access[Role and permission middleware]
-	Access --> Controllers[Workflow controllers]
-	Controllers --> Services[Academic calculator / activity logger]
-	Controllers --> Models[Eloquent domain models]
-	Services --> Models
-	Models --> Database[(PostgreSQL)]
-```
-
-The academic data model is relational: a Faculty contains Departments; Departments own Programs and Academic Levels; Programs define their available Levels; Academic Sessions contain Semesters; Courses are allocated through Course Offerings to a Semester and optionally a Program/Level. Students link to a Department, Program, and Level. Registrations reference both the Course and the selected Offering.
-
-### Database schema (ER diagram)
-
-The diagram shows the main academic, account, workflow, and audit tables. `users` stores students, lecturers, and administrators; their role assignments distinguish the account types. Optional foreign keys are nullable in the schema.
-
-```mermaid
-erDiagram
-    FACULTIES o|--o{ DEPARTMENTS : contains
-    DEPARTMENTS o|--o{ USERS : associates
-    DEPARTMENTS ||--o{ ACADEMIC_PROGRAMS : offers
-    DEPARTMENTS ||--o{ ACADEMIC_LEVELS : defines
-    DEPARTMENTS ||--o{ COURSES : owns
-
-    ACADEMIC_PROGRAMS ||--o{ ACADEMIC_PROGRAM_LEVELS : includes
-    ACADEMIC_LEVELS ||--o{ ACADEMIC_PROGRAM_LEVELS : available_at
-
-    USERS ||--o{ COURSE_LECTURERS : assigned
-    COURSES ||--o{ COURSE_LECTURERS : taught_by
-
-    ACADEMIC_SESSIONS ||--o{ SEMESTERS : contains
-    SEMESTERS ||--o{ COURSE_OFFERINGS : schedules
-    COURSES ||--o{ COURSE_OFFERINGS : offered_as
-    ACADEMIC_PROGRAMS o|--o{ COURSE_OFFERINGS : targets
-    ACADEMIC_LEVELS o|--o{ COURSE_OFFERINGS : targets
-
-    USERS ||--o{ COURSE_REGISTRATIONS : registers
-    COURSES ||--o{ COURSE_REGISTRATIONS : requested_for
-    COURSE_OFFERINGS o|--o{ COURSE_REGISTRATIONS : selected_for
-    COURSE_REGISTRATIONS ||--o| RESULTS : receives
-    USERS o|--o{ RESULTS : submits_or_reviews
-    RESULTS o|--o{ RESULT_EVENTS : records
-    USERS o|--o{ RESULT_EVENTS : acts_on
-
-    USERS o|--o{ SYSTEM_ACTIVITIES : performs
-
-    USERS {
-        bigint id PK
-        bigint department_id FK
-        bigint academic_program_id FK
-        bigint academic_level_id FK
-        string student_number UK
-        string account_status
-    }
-    FACULTIES {
-        bigint id PK
-        string code UK
-        boolean active
-    }
-    DEPARTMENTS {
-        bigint id PK
-        bigint faculty_id FK
-        string code UK
-    }
-    ACADEMIC_PROGRAMS {
-        bigint id PK
-        bigint department_id FK
-        string code
-    }
-    ACADEMIC_LEVELS {
-        bigint id PK
-        bigint department_id FK
-        string name
-    }
-    ACADEMIC_PROGRAM_LEVELS {
-        bigint id PK
-        bigint academic_program_id FK
-        bigint academic_level_id FK
-    }
-    COURSES {
-        bigint id PK
-        bigint department_id FK
-        string code
-        unsignedSmallInteger credit_units
-        boolean active
-    }
-    COURSE_LECTURERS {
-        bigint id PK
-        bigint course_id FK
-        bigint lecturer_id FK
-    }
-    ACADEMIC_SESSIONS {
-        bigint id PK
-        string name UK
-        boolean active
-    }
-    SEMESTERS {
-        bigint id PK
-        bigint academic_session_id FK
-        string name
-        boolean active
-    }
-    COURSE_OFFERINGS {
-        bigint id PK
-        bigint course_id FK
-        bigint semester_id FK
-        bigint academic_program_id FK
-        bigint academic_level_id FK
-        boolean active
-    }
-    COURSE_REGISTRATIONS {
-        bigint id PK
-        bigint student_id FK
-        bigint course_id FK
-        bigint course_offering_id FK
-        string status
-        text rejection_reason
-    }
-    RESULTS {
-        bigint id PK
-        bigint course_registration_id FK "unique"
-        bigint submitted_by FK
-        bigint reviewed_by FK
-        decimal total_score
-        string grade
-        string status
-    }
-    RESULT_EVENTS {
-        bigint id PK
-        bigint result_id FK
-        bigint actor_id FK
-        string event
-        json metadata
-    }
-    SYSTEM_ACTIVITIES {
-        bigint id PK
-        bigint actor_id FK
-        string action
-        string subject_type
-        bigint subject_id
-        json details
-    }
-    STUDENT_NUMBER_SEQUENCES {
-        string key PK
-        bigint last_number
-    }
-```
-
-`COURSE_LECTURERS` and `ACADEMIC_PROGRAM_LEVELS` implement many-to-many assignments. Spatie Permission's role and permission tables are omitted from the diagram; user role links are polymorphic (`model_type`, `model_id`). `SYSTEM_ACTIVITIES.subject_type` and `subject_id` are also polymorphic rather than a foreign key. Student and lecturer accounts are records in `USERS`, with their role providing the account type.
-
-## Engineering Decisions
-
-- Department Admin authorization is enforced at both route and query/write boundaries. Department-scoped model lookups return `404` for foreign records, avoiding accidental cross-department updates. The Super Admin role is the only role allowed on university setup and account-control routes.
-- Workflow permissions are checked in addition to roles. Super Admin can manage permission grants; the seeded roles receive only the permissions needed for their workflows.
-- Business mutations use an application service (use case) layer. Controllers keep HTTP validation, department scoping, and response formatting; injected services own account, academic structure, course, registration, review, and result workflows, including transactional updates and activity logging.
-- Tradeoff: this adds classes and a layer of indirection, and callers pass validated data and domain models into services. The separation keeps controllers focused on HTTP concerns and gives each workflow a clear place to evolve. Read queries remain in controllers until they become complex enough to justify dedicated query objects.
-- Registration eligibility is based on an active Course Offering, not a user-supplied academic year or semester. The current session, semester, course, program, and level must be active and match the student. The server derives the registration year and semester from those records.
-- Result scores are bounded at CA 40 and examination 60. Totals and grades are calculated server-side. The assessment does not define a grade-point scale, so this MVP documents an explicit A-F, 4.0-scale assumption and calculates cumulative GPA from approved results only.
-- Result submissions and decisions retain result events; administrative actions are also written to a system activity feed. Result state changes and their audit records are saved transactionally.
-- Users are deactivated or suspended rather than deleted, preserving registration and result history. Inactive accounts are denied at login and on subsequent authenticated requests.
-- PHPUnit defaults to isolated in-memory SQLite. The Docker setup also provides a separate PostgreSQL test database for database-specific validation.
-
-## Implemented Modules
-
-- Department dashboards, scoped student and lecturer profiles, program/level management, course management, lecturer allocation, registration review, result review, and departmental summary/performance reports.
-- Super Admin university dashboard, faculty/department/program/level/session/semester setup, account and role/permission management, university-wide registration/result totals, and administrative activity monitoring.
-- Student registration against eligible offerings; Lecturer result submission and correction resubmission.
-
-Reports are currently displayed in the portal; file export is not included in this MVP.
-
-## Tech Stack
-
-- Laravel 13.x
-- PHP 8.4
-- PostgreSQL
-- Spatie Laravel Permission for roles and permissions
-- Tailwind CSS
-- Pest for feature and unit tests (TDD)
-
-## Grading scale
-
-| Score | Grade | Grade points |
-| --- | --- | ---: |
-| 80-100 | A | 4.0 |
-| 70-79 | B | 3.0 |
-| 60-69 | C | 2.0 |
-| 50-59 | D | 1.0 |
-| 0-49 | F | 0.0 |
-
-Cumulative GPA is credit-weighted and uses approved results only. The scale is a documented MVP default and can be changed to match university policy.
-
-## Docker setup
-
-Requirements: Docker Desktop with Docker Compose.
-
-The Compose stack runs PHP 8.4, PostgreSQL 18, a queue worker, and the Vite development server. The database and test suite use separate PostgreSQL databases. The app source is mounted into the PHP container, so PHP changes are available immediately; Vite watches frontend changes.
-
-1. Create the local environment file:
-
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   For local Docker use, Compose reads `DB_CONNECTION` from `.env` (defaulting to PostgreSQL) and supplies the container-specific settings: `DB_HOST=db`, port `5432`, and database/user `uemp`. These override host-oriented values such as `DB_HOST=127.0.0.1` from `.env.example`. The PostgreSQL password defaults to `uemp-local`; set `POSTGRES_PASSWORD` in `.env` to change it. Database-backed sessions use the same PostgreSQL connection.
-
-2. Start PostgreSQL, generate the app key, and initialize the development database:
-
-   ```sh
-   docker compose up -d db
-   docker compose run --rm app php artisan key:generate
-   docker compose run --rm app php artisan migrate --seed --force
-   ```
-
-3. Start the app, queue worker, and Vite server:
-
-   ```sh
-   docker compose up --build -d app worker vite
-   ```
-
-   Open <http://localhost:8000>. Vite is available on port 5173, and PostgreSQL is exposed to host tools on port 5433.
-
-   Compose reads environment values when it creates a container. The app runs Laravel's development server with `--no-reload` so Compose-provided database settings are forwarded to the HTTP worker. After changing `.env` or the Compose environment, recreate the app containers so they receive the new values; `docker compose restart` only restarts containers with their existing environment:
-
-   ```sh
-   docker compose up -d --force-recreate app worker
-   ```
-
-   Inside Docker, `localhost` refers to the app container itself. Use `DB_HOST=db` for the app; use `127.0.0.1:5433` only for database tools running on the host.
-
-View logs and stop the stack with:
-
-```sh
-docker compose logs -f app db worker vite
-docker compose down
-```
-
-The PostgreSQL data is kept in a named Docker volume when the stack stops. `docker compose down -v` removes that volume and permanently deletes the local development and test databases.
-
-## Local setup
-
-Requirements: PHP 8.4, Composer, Node.js with npm, and PostgreSQL.
-
-1. Install PHP and JavaScript dependencies:
-
-	```sh
-	composer install
-	npm install
-	```
-
-2. Create the local environment file and application key:
-
-	```sh
-	cp .env.example .env
-	php artisan key:generate
-	```
-
-3. Set the PostgreSQL connection values in `.env`, then run migrations and seed the local development data:
-
-	```sh
-	php artisan migrate --seed
-	```
-
-4. Build frontend assets and start the application:
-
-	```sh
-	npm run build
-	php artisan serve
-	```
-
-On Windows PowerShell, use `Copy-Item .env.example .env` in place of `cp`.
-
-The seeded development accounts all use the password `password`:
-
-| Role | Email |
-| --- | --- |
-| Super Admin | `superadmin@uemp.test` |
-| Department Admin | `admin@uemp.test` |
-| Lecturer | `lecturer@uemp.test` |
-| Student | `student@uemp.test` |
-
-These are local demonstration credentials only. Change or remove them before deploying the application anywhere public.
-
-## Development seed data
-
-`php artisan db:seed` creates 20 students, 20 lecturers, 20 courses, 20 course offerings, and 20 registrations. Other academic tables and audit events are also kept to at most 20 records in the demo dataset. Registration and result records cover pending, confirmed, rejected, submitted, approved, and returned workflows. Student numbers are assigned incrementally in the `UEMP-YYYY-NNNNNN` format.
-
-Student, Super Admin account, registration, and activity lists use server-side filters and 20-row pagination.
-
-## Testing
-
-The default `php artisan test` run uses the in-memory SQLite database configured in `phpunit.xml`. To run the suite against PostgreSQL with Docker, first start the database as described above, then run:
-
-```sh
-docker compose --profile testing run --rm test php artisan migrate --force
-docker compose --profile testing run --rm test
-```
-
-The test profile connects to the separate `uemp_test` database, which is created when the PostgreSQL volume is initialized. The feature and unit suite covers authorization boundaries, department scoping, academic setup, registration eligibility, result approval, account status, grading, and GPA. Never point automated tests at production or a database containing data you need to keep.
-
-## Assessment deliverables
-
-- Working web application and role-specific dashboards
-- Database schema and migrations
-- Seeded local test accounts for each workflow role
-- Automated tests and setup instructions
-- Technical documentation for the architecture and key decisions
+The MVP uses a documented A–F, 4.0-point grading assumption and calculates cumulative GPA from approved results only. See the detailed architecture, engineering decisions, setup, and tests below.
